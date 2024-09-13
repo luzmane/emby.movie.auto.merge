@@ -1,0 +1,75 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- project setup -->
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <OutputType>Library</OutputType>
+    <GeneratePackageOnBuild>False</GeneratePackageOnBuild>
+
+    <AnalysisMode>AllEnabledByDefault</AnalysisMode>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+
+    <!-- nuget setup -->
+    <Version>1.0.0</Version>
+    <AssemblyVersion>$(Version)</AssemblyVersion>
+    <FileVersion>$(Version)</FileVersion>
+    <Authors>Evgeniy Luzman</Authors>
+    <Description>Emby plugin to merge/split movies with the same provider id</Description>
+    <PackageId>MovieAutoMerge</PackageId>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <PackageTags>emby</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageReleaseNotes>$([System.IO.File]::ReadAllText("$(MSBuildProjectDirectory)/../RELEASE-NOTES.md"))</PackageReleaseNotes>
+    <RepositoryType>git</RepositoryType>
+    <RepositoryUrl>https://github.com/luzmane/emby.movie.auto.merge/</RepositoryUrl>
+    <Title>Emby plugin to merge/split movies with the same provider id</Title>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+      <_Parameter1>MovieAutoMerge.Tests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="../README.md" Pack="true" PackagePath=""/>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="mediabrowser.server.core" Version="4.8.5"/>
+    <PackageReference Include="System.Memory" Version="4.5.5"/>
+    <PackageReference Include="System.Text.Json" Version="6.0.9"/>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Remove="thumb.png"/>
+    <None Remove="Configuration/MovieAutoMerge.html"/>
+    <None Remove="Configuration/MovieAutoMerge.js"/>
+
+    <None Remove="i18n/Configuration/ru.json"/>
+    <None Remove="i18n/Configuration/en-US.json"/>
+
+    <None Remove="i18n/ScheduledTasks/MergeMoviesTask/ru.json"/>
+    <None Remove="i18n/ScheduledTasks/MergeMoviesTask/en-US.json"/>
+
+    <None Remove="i18n/ScheduledTasks/SplitMoviesTask/ru.json"/>
+    <None Remove="i18n/ScheduledTasks/SplitMoviesTask/en-US.json"/>
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="thumb.png"/>
+    <EmbeddedResource Include="Configuration/MovieAutoMerge.html"/>
+    <EmbeddedResource Include="Configuration/MovieAutoMerge.js"/>
+
+    <EmbeddedResource Include="i18n/Configuration/ru.json"/>
+    <EmbeddedResource Include="i18n/Configuration/en-US.json"/>
+
+    <EmbeddedResource Include="i18n/ScheduledTasks/MergeMoviesTask/ru.json"/>
+    <EmbeddedResource Include="i18n/ScheduledTasks/MergeMoviesTask/en-US.json"/>
+
+    <EmbeddedResource Include="i18n/ScheduledTasks/SplitMoviesTask/ru.json"/>
+    <EmbeddedResource Include="i18n/ScheduledTasks/SplitMoviesTask/en-US.json"/>
+  </ItemGroup>
+
+</Project>

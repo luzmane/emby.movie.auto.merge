@@ -1,0 +1,41 @@
+﻿<div data-role="page" class="page type-interior pluginConfigurationPage libraryFileOrganizerLogPage fullWidthContent"
+     data-controller="__plugin/MovieAutoMergeJS" data-title="${Movie Auto Merge}">
+  <div class="content-primary padded-top">
+    <form class="mergeConfigForm" style="border: 2px solid black; border-radius: 10px; padding: 5px">
+      <div class="paperList checkboxList checkboxList-paperList">
+        <h3 class="checkboxListLabel">${Movie Auto Merge configuration}</h3>
+        <label class="checkboxContainer">
+          <input is="emby-checkbox" type="checkbox" class="chkMergeAcrossLibraries">
+          <span class="checkboxButtonLabel">${Merge Across Libraries}</span>
+        </label>
+        <label class="checkboxContainer">
+          <input is="emby-checkbox" type="checkbox" class="chkDoNotChangeLockedItems">
+          <span class="checkboxButtonLabel">${Do Not Change Locked Items}</span>
+        </label>
+        <label class="checkboxContainer">
+          <input is="emby-checkbox" type="checkbox" class="chkRunAutomatically">
+          <span class="checkboxButtonLabel">${Run Automatically}</span>
+        </label>
+      </div>
+      <div>
+        <button is="emby-button" type="submit" class="raised button-submit block"><span>${Save}</span></button>
+      </div>
+    </form>
+    <form class="splitForm" style="border: 2px solid black; border-radius: 10px; padding: 5px">
+      <div class="paperList checkboxList checkboxList-paperList">
+        <h3 class="checkboxListLabel">${Split movie}</h3>
+        <div class="selectContainer">
+          <label class="selectLabel" for="provList">${Provider name}:</label>
+          <select is="emby-select" id="provList" name="provList" class="provList">
+          </select>
+        </div>
+        <div class="inputContainer">
+          <input is="emby-input" type="text" class="providerId" label="${Provider ID}">
+        </div>
+      </div>
+      <div>
+        <button is="emby-button" type="submit" class="raised button-submit block"><span>${Split}</span></button>
+      </div>
+    </form>
+  </div>
+</div>

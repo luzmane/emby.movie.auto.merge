@@ -1,0 +1,43 @@
+name: "Test Report"
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    # The branches below must be a subset of the branches above
+    branches: [ "master" ]
+  schedule:
+    - cron: '15 00 9 * *'
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Test Report
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      checks: write
+
+    steps:
+    - name: Setup .NET Core SDK
+      uses: actions/setup-dotnet@6bd8b7f7774af54e05809fcc5431931b3eb1ddee #4.0.1
+      with:
+        dotnet-version: 6.x
+
+    - name: Checkout repository
+      uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 #4.1.7
+
+    - name: Build projects
+      run: dotnet build
+
+    - name: Run tests
+      continue-on-error: true
+      run: dotnet test --logger "trx;LogFileName=test-results.trx"
+
+    - name: Test Report
+      uses: dorny/test-reporter@31a54ee7ebcacc03a09ea97a7e5465a47b84aea5 #1.9.1
+      with:
+        name: 'Test report'
+        path: 'MovieAutoMerge.Tests/TestResults/test-results.trx'
+        reporter: 'dotnet-trx'
