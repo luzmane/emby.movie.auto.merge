@@ -216,7 +216,9 @@ namespace MovieAutoMerge.ScheduledTasks
                     .SelectMany(m => m.GetAlternateVersionIds());
 
                 toReturn
-                    .RemoveAll(m => lockedAltVersions.Contains(m.InternalId));
+                    .RemoveAll(m =>
+                        m.GetAlternateVersionIds().Any(a => lockedAltVersions.Contains(a))
+                        || lockedAltVersions.Contains(m.InternalId));
             }
 
             _logger.Info("Found {0} applicable movie files in libraries", toReturn.Count);

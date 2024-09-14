@@ -1,4 +1,4 @@
-namespace EmbyKinopoiskRu.Tests.Utils;
+namespace MovieAutoMerge.Tests.Utils;
 
 public class EmbyProgress : IProgress<double>
 {

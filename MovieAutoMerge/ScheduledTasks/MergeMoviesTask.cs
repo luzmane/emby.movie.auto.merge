@@ -117,9 +117,9 @@ namespace MovieAutoMerge.ScheduledTasks
             {
                 var items = GetItemsToProcess();
 
-                foreach ((var libraryId, List<BaseItem> movies) in items)
+                foreach ((var libraryId, List<Movie> movies) in items)
                 {
-                    Dictionary<string, HashSet<BaseItem>> groups = PrepareItemsForMerge(movies);
+                    Dictionary<string, HashSet<Movie>> groups = PrepareItemsForMerge(movies);
                     if (groups.Count == 0)
                     {
                         _logger.Info("Found no movies with ungrouped versions");
@@ -167,7 +167,7 @@ namespace MovieAutoMerge.ScheduledTasks
             }
         }
 
-        private void UpdateCollection(ICollection<BaseItem> set, string libraryName)
+        private void UpdateCollection(ICollection<Movie> set, string libraryName)
         {
             if (set.Count > 0)
             {
@@ -176,12 +176,12 @@ namespace MovieAutoMerge.ScheduledTasks
                     string.IsNullOrEmpty(libraryName) ? string.Empty : $"from {libraryName} ",
                     set.Count);
 
-                _libraryManager.MergeItems(set.ToArray());
+                _libraryManager.MergeItems(set.ToArray<BaseItem>());
                 set.Clear();
             }
         }
 
-        private Dictionary<string, HashSet<BaseItem>> PrepareItemsForMerge(IReadOnlyCollection<BaseItem> movies)
+        private Dictionary<string, HashSet<Movie>> PrepareItemsForMerge(IReadOnlyCollection<Movie> movies)
         {
             var providerTypes = movies
                 .SelectMany(i => i.ProviderIds?.Keys)
@@ -189,7 +189,7 @@ namespace MovieAutoMerge.ScheduledTasks
                 .Where(i => !string.IsNullOrWhiteSpace(i));
             _logger.Info("Found {0} different providers: {1}", providerTypes.Count(), string.Join(",", providerTypes));
 
-            List<IGrouping<string, BaseItem>> groups = new List<IGrouping<string, BaseItem>>();
+            List<IGrouping<string, Movie>> groups = new List<IGrouping<string, Movie>>();
             foreach (var providerType in providerTypes)
             {
                 var list = movies
@@ -203,13 +203,13 @@ namespace MovieAutoMerge.ScheduledTasks
 
             _logger.Info("Found {0} movie groups", groups.Count);
 
-            Dictionary<string, HashSet<BaseItem>> result = new Dictionary<string, HashSet<BaseItem>>();
+            Dictionary<string, HashSet<Movie>> result = new Dictionary<string, HashSet<Movie>>();
             foreach (var group in groups)
             {
                 var key = group.Key;
                 if (!result.TryGetValue(key, out var set))
                 {
-                    set = new HashSet<BaseItem>(BaseItemEqualityComparer);
+                    set = new HashSet<Movie>(BaseItemEqualityComparer);
                     result.Add(key, set);
                 }
 
@@ -245,7 +245,7 @@ namespace MovieAutoMerge.ScheduledTasks
             return $"{providerType}@{baseItem.GetProviderId(providerType)}";
         }
 
-        private IEnumerable<(long libraryId, List<BaseItem> movies)> GetItemsToProcess()
+        private IEnumerable<(long libraryId, List<Movie> movies)> GetItemsToProcess()
         {
             var config = Plugin.Instance.Configuration;
             _logger.Info("Choosing items: MergeAcrossLibraries-{0}", config.MergeAcrossLibraries);
@@ -270,9 +270,10 @@ namespace MovieAutoMerge.ScheduledTasks
                     IsVirtualItem = false,
                     MediaTypes = new[] { nameof(MediaType.Video) },
                     HasPath = true
-                });
+                })
+                .OfType<Movie>();
 
-                List<BaseItem> toReturn = FilterValidMovies(movies, config.DoNotChangeLockedItems);
+                List<Movie> toReturn = FilterValidMovies(movies, config.DoNotChangeLockedItems);
                 _logger.Info("Found {0} applicable movie files in libraries", toReturn.Count);
                 yield return (-1, toReturn);
             }
@@ -294,18 +295,18 @@ namespace MovieAutoMerge.ScheduledTasks
                         IsVirtualItem = false,
                         MediaTypes = new[] { nameof(MediaType.Video) },
                         HasPath = true
-                    });
+                    }).OfType<Movie>();
 
-                    List<BaseItem> toReturn = FilterValidMovies(movies, config.DoNotChangeLockedItems);
+                    List<Movie> toReturn = FilterValidMovies(movies, config.DoNotChangeLockedItems);
                     _logger.Info("Found {0} applicable movie files in library \"{1}\".", toReturn.Count, library.Name);
                     yield return (library.InternalId, toReturn);
                 }
             }
         }
 
-        private List<BaseItem> FilterValidMovies(IEnumerable<BaseItem> movies, bool doNotChangeLockedItems)
+        private List<Movie> FilterValidMovies(IEnumerable<Movie> movies, bool doNotChangeLockedItems)
         {
-            List<BaseItem> toReturn = new List<BaseItem>();
+            List<Movie> toReturn = new List<Movie>();
             foreach (var movie in movies)
             {
                 if (doNotChangeLockedItems && movie.IsLocked)

@@ -3,7 +3,7 @@ using System.Text;
 
 using MediaBrowser.Model.Logging;
 
-namespace EmbyKinopoiskRu.Tests.Utils;
+namespace MovieAutoMerge.Tests.Utils;
 
 public class EmbyLogger : ILogger
 {

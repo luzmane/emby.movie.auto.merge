@@ -21,13 +21,13 @@ namespace MovieAutoMerge.Extension
                 return false;
             }
 
-            return x.Id.Equals(y.Id);
+            return x.InternalId.Equals(y.InternalId);
         }
 
         /// <inheritdoc />
         public int GetHashCode(BaseItem obj)
         {
-            return obj.Id.GetHashCode();
+            return obj.InternalId.GetHashCode();
         }
     }
 }
