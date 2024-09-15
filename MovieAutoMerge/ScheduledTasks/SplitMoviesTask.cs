@@ -177,14 +177,11 @@ namespace MovieAutoMerge.ScheduledTasks
             });
 
             bool toReturn = false;
-            foreach (Video video in movies.OfType<Video>())
+            foreach (var video in movies.OfType<Video>().Where(v => v.GetAlternateVersionIds().Count > 0))
             {
-                if (video.GetAlternateVersionIds().Count > 0)
-                {
-                    _libraryManager.SplitItems(video);
-                    _logger.Info($"Movie {providerType}/{providerId} split");
-                    toReturn = true;
-                }
+                _libraryManager.SplitItems(video);
+                _logger.Info($"Movie {providerType}/{providerId} split");
+                toReturn = true;
             }
 
             return toReturn;
