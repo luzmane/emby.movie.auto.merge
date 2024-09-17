@@ -2,7 +2,7 @@
 
 Плагин для Emby для компоновки или разделения фильмов в медиатеках. Компонует используя все известные Emby провайдеры метаданных (IMDB, TMDB, Кинопоиск, и т.п.) из фильмов.
 
-Plugin for Emby to merge/split movies in libraries. Using all available from movies metadata providers (IMDB, TMDB, Кинопоиск, etc.).
+Plugin for Emby to merge/split movies in libraries. Uses all available movie metadata providers (IMDB, TMDB, Кинопоиск, etc.).
 
 
 ### Благодарность
@@ -31,6 +31,3 @@ Plugin for Emby to merge/split movies in libraries. Using all available from mov
 
 * Плагин тестировался на версии 4.8.8
 * Собирался c .Net 7.0 для .NetStandard 2.0
-
-## TODO:
-* добавить тесты
