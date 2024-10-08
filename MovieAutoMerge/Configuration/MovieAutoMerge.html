@@ -16,6 +16,14 @@
           <input is="emby-checkbox" type="checkbox" class="chkRunAutomatically">
           <span class="checkboxButtonLabel">${Run Automatically}</span>
         </label>
+        <div class="paperList checkboxList checkboxList-paperList" style="border: 2px solid black; border-radius: 10px; padding: 5px">
+          <h3 class="checkboxListLabel">${List of available providers}</h3>
+          <div class="fieldDescription">${If no one is chosen, the plugin will take them all}</div>
+          <label class="checkboxContainer providerTemplate" style="display: none;">
+            <input is="emby-checkbox" type="checkbox" class="provider">
+            <span class="checkboxButtonLabel"></span>
+          </label>
+        </div><!-- end collection list config -->
       </div>
       <div>
         <button is="emby-button" type="submit" class="raised button-submit block"><span>${Save}</span></button>

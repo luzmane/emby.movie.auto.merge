@@ -187,7 +187,15 @@ namespace MovieAutoMerge.ScheduledTasks
                 .SelectMany(i => i.ProviderIds?.Keys)
                 .Distinct()
                 .Where(i => !string.IsNullOrWhiteSpace(i));
-            _logger.Info("Found {0} different providers: {1}", providerTypes.Count(), string.Join(",", providerTypes));
+            _logger.Debug("Found {0} different providers: {1}", providerTypes.Count(), string.Join(",", providerTypes));
+
+            if (Plugin.Instance.Configuration.UsedProviders.Count > 0)
+            {
+                _logger.Info("Filtering all available providers by chosen list: {1}", string.Join(",", Plugin.Instance.Configuration.UsedProviders));
+                providerTypes = providerTypes.Where(t => Plugin.Instance.Configuration.UsedProviders.Contains(t));
+            }
+
+            _logger.Info("Used {0} different providers: {1}", providerTypes.Count(), string.Join(",", providerTypes));
 
             List<IGrouping<string, Movie>> groups = new List<IGrouping<string, Movie>>();
             foreach (var providerType in providerTypes)
@@ -220,9 +228,7 @@ namespace MovieAutoMerge.ScheduledTasks
                     set.Add(baseItem);
 
                     // for each provider id in the item
-                    foreach (var subKey in baseItem.ProviderIds
-                                 .Select(providerIdKeyPair => GetMovieKey(providerIdKeyPair.Key, baseItem))
-                                 .Where(l => !key.Equals(l, StringComparison.Ordinal)))
+                    foreach (var subKey in GetItemAvailableProviders(providerTypes, baseItem, key))
                     {
                         // fetch existing pair
                         if (result.TryGetValue(subKey, out var subSet))
@@ -238,6 +244,17 @@ namespace MovieAutoMerge.ScheduledTasks
             }
 
             return result;
+        }
+
+        private static IEnumerable<string> GetItemAvailableProviders(IEnumerable<string> providersList, Movie item, string key)
+        {
+            IEnumerable<KeyValuePair<string, string>> list = Plugin.Instance.Configuration.UsedProviders.Count > 0
+                ? item.ProviderIds.Where(providerIdKeyPair => providersList.Contains(providerIdKeyPair.Key))
+                : item.ProviderIds;
+
+            return list
+                .Select(providerIdKeyPair => GetMovieKey(providerIdKeyPair.Key, item))
+                .Where(l => !key.Equals(l, StringComparison.Ordinal));
         }
 
         private static string GetMovieKey(string providerType, IHasProviderIds baseItem)
@@ -263,15 +280,15 @@ namespace MovieAutoMerge.ScheduledTasks
                     .Select(l => l.InternalId)
                     .ToArray();
                 var movies = _libraryManager.GetItemList(new InternalItemsQuery
-                {
-                    Recursive = true,
-                    ParentIds = libIds,
-                    IncludeItemTypes = new[] { nameof(Movie) },
-                    IsVirtualItem = false,
-                    MediaTypes = new[] { nameof(MediaType.Video) },
-                    HasPath = true
-                })
-                .OfType<Movie>();
+                    {
+                        Recursive = true,
+                        ParentIds = libIds,
+                        IncludeItemTypes = new[] { nameof(Movie) },
+                        IsVirtualItem = false,
+                        MediaTypes = new[] { nameof(MediaType.Video) },
+                        HasPath = true
+                    })
+                    .OfType<Movie>();
 
                 List<Movie> toReturn = FilterValidMovies(movies, config.DoNotChangeLockedItems);
                 _logger.Info("Found {0} applicable movie files in libraries", toReturn.Count);
