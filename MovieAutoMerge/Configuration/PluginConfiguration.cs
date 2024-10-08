@@ -32,6 +32,14 @@ namespace MovieAutoMerge.Configuration
         public bool RunAutomatically { get; set; } = true;
 
         /// <summary>
+        /// Providers to use for merging
+        /// </summary>
+        // ReSharper disable once CollectionNeverUpdated.Global
+#pragma warning disable CA2227
+        public List<string> UsedProviders { get; set; } = new List<string>();
+#pragma warning restore CA2227
+
+        /// <summary>
         /// List of providers to choose for specified movie split. Read only from UI
         /// </summary>
         public List<string> ProvidersList

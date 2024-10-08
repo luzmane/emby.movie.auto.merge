@@ -8,5 +8,7 @@
   "Run Automatically": "Run Automatically",
   "Save": "Save",
   "Split": "Split",
-  "Split movie": "Split movie"
+  "Split movie": "Split movie",
+  "List of available providers": "List of available providers",
+  "If no one is chosen, the plugin will take them all": "If no one is chosen, the plugin will take them all"
 }
