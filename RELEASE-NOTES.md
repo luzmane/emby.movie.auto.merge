@@ -1,3 +1,6 @@
+v.1.1.1
+- fix: continue merge even if one movie failed to be merged
+
 v.1.1.0
 - feature: add option to choose providers for merge (configuration page)
 
