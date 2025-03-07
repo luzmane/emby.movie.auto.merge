@@ -157,7 +157,7 @@ namespace MovieAutoMerge.ScheduledTasks
             }
             catch (Exception ex)
             {
-                _logger.ErrorException($"Failed to merge movies due to: '{ex.Message}", ex);
+                _logger.ErrorException($"Failed to merge movies due to: '{ex.Message}'", ex);
                 return Task.FromException(ex);
             }
             finally
@@ -169,16 +169,29 @@ namespace MovieAutoMerge.ScheduledTasks
 
         private void UpdateCollection(ICollection<Movie> set, string libraryName)
         {
-            if (set.Count > 0)
+            if (set.Count <= 0)
             {
-                _logger.Info("Updating movie '{0}' {1}with {2} separate versions",
-                    set.First().Name,
-                    string.IsNullOrEmpty(libraryName) ? string.Empty : $"from {libraryName} ",
-                    set.Count);
-
-                _libraryManager.MergeItems(set.ToArray<BaseItem>());
-                set.Clear();
+                return;
             }
+
+            _logger.Info("Updating movie '{0}' {1}with {2} separate versions",
+                set.First().Name,
+                string.IsNullOrEmpty(libraryName) ? string.Empty : $"from {libraryName} ",
+                set.Count);
+
+            try
+            {
+                _libraryManager.MergeItems(set.ToArray<BaseItem>());
+            }
+            catch (Exception e)
+            {
+                _logger.Warn("Failed to merge '{0}' {1}due to '{2}'",
+                    set.First().Name,
+                    string.IsNullOrEmpty(libraryName) ? string.Empty : $"from '{libraryName}' ",
+                    e.Message);
+            }
+
+            set.Clear();
         }
 
         private Dictionary<string, HashSet<Movie>> PrepareItemsForMerge(IReadOnlyCollection<Movie> movies)
