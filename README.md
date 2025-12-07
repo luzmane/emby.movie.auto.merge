@@ -4,6 +4,10 @@
 
 Plugin for Emby to merge/split movies in libraries. Uses all available movie metadata providers (IMDB, TMDB, Кинопоиск, etc.).
 
+:exclamation: **Эта функциональность присутствует в Emby 4.9+**
+
+:exclamation: **This functionality already exists in Emby 4.9+**
+
 
 ### Благодарность
 * Спасибо [svyaznoy362](https://github.com/svyaznoy362) за тестирования версий.
