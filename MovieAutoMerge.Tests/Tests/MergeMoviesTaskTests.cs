@@ -1,58 +1,39 @@
 using FluentAssertions;
 
+using MediaBrowser.Controller.Configuration;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.Movies;
-using MediaBrowser.Model.Configuration;
+using MediaBrowser.Model.Data;
 using MediaBrowser.Model.Entities;
+using MediaBrowser.Model.Serialization;
 
 using Moq;
 
-using MovieAutoMerge.Configuration;
+using MovieAutoMerge.I18n;
 using MovieAutoMerge.ScheduledTasks;
 using MovieAutoMerge.Tests.Utils;
+using MovieAutoMerge.UI;
 
 namespace MovieAutoMerge.Tests.Tests;
 
 public class MergeMoviesTaskTests : BaseTest
 {
-    private static readonly NLog.ILogger Logger = NLog.LogManager.GetLogger(nameof(MergeMoviesTaskTests));
-
-    private readonly PluginConfiguration _pluginConfiguration;
-    private readonly MergeMoviesTask _mergeMoviesTask;
+    private static readonly NLog.Logger Logger = NLog.LogManager.GetLogger(nameof(MergeMoviesTaskTests));
 
     public MergeMoviesTaskTests()
     {
-        _pluginConfiguration = new PluginConfiguration();
-
         BaseItem.ConfigurationManager = _serverConfigurationManager.Object;
         BaseItem.FileSystem = _fileSystem.Object;
         BaseItem.LibraryManager = _libraryManager.Object;
         BaseItem.LocalizationManager = _localizationManager.Object;
         BaseItem.ItemRepository = _itemRepository.Object;
         BaseItem.ApplicationHost = _serverApplicationHost.Object;
-        CollectionFolder.XmlSerializer = _xmlSerializer.Object;
-
-        _ = new Plugin(
-            _applicationPaths.Object,
-            _xmlSerializer.Object,
-            _libraryManager.Object
-        );
-        Plugin.Instance.SetAttributes("MovieAutoMerge.dll", string.Empty, new Version(1, 0, 0));
 
         CommonConfig();
-
-        _mergeMoviesTask = new MergeMoviesTask(
-            _libraryManager.Object,
-            _logManager.Object,
-            _serverConfigurationManager.Object,
-            _jsonSerializer
-        );
     }
 
     private void CommonConfig()
     {
-        base.CommonConfig(_pluginConfiguration);
-
         Dictionary<long, BaseItem> librariesVault = new Dictionary<long, BaseItem>
         {
             {
@@ -93,7 +74,7 @@ public class MergeMoviesTaskTests : BaseTest
                     ParentId = 2L,
                     ProviderIds = new ProviderIdDictionary
                     {
-                        { MetadataProviders.Tmdb.ToString(), "112" }
+                        { nameof(MetadataProviders.Tmdb), "112" }
                     }
                 }
             },
@@ -106,8 +87,8 @@ public class MergeMoviesTaskTests : BaseTest
                     ProviderIds = new ProviderIdDictionary
                     {
                         { "KinopoiskRu", "211" },
-                        { MetadataProviders.Tmdb.ToString(), "tt211" },
-                        { MetadataProviders.Imdb.ToString(), "211" }
+                        { nameof(MetadataProviders.Tmdb), "tt211" },
+                        { nameof(MetadataProviders.Imdb), "211" }
                     }
                 }
             },
@@ -132,7 +113,7 @@ public class MergeMoviesTaskTests : BaseTest
                     ProviderIds = new ProviderIdDictionary
                     {
                         { "KinopoiskRu", "222" },
-                        { MetadataProviders.Imdb.ToString(), "222" }
+                        { nameof(MetadataProviders.Imdb), "222" }
                     }
                 }
             },
@@ -144,7 +125,7 @@ public class MergeMoviesTaskTests : BaseTest
                     ParentId = 2L,
                     ProviderIds = new ProviderIdDictionary
                     {
-                        { MetadataProviders.Imdb.ToString(), "222" }
+                        { nameof(MetadataProviders.Imdb), "222" }
                     }
                 }
             },
@@ -158,7 +139,7 @@ public class MergeMoviesTaskTests : BaseTest
                     ProviderIds = new ProviderIdDictionary
                     {
                         { "KinopoiskRu", "222" },
-                        { MetadataProviders.Imdb.ToString(), "222" }
+                        { nameof(MetadataProviders.Imdb), "222" }
                     }
                 }
             },
@@ -171,7 +152,7 @@ public class MergeMoviesTaskTests : BaseTest
                     IsLocked = true,
                     ProviderIds = new ProviderIdDictionary
                     {
-                        { MetadataProviders.Tmdb.ToString(), "212" }
+                        { nameof(MetadataProviders.Tmdb), "212" }
                     }
                 }
             },
@@ -188,7 +169,7 @@ public class MergeMoviesTaskTests : BaseTest
                     ParentId = 3L,
                     ProviderIds = new ProviderIdDictionary
                     {
-                        { MetadataProviders.Tmdb.ToString(), "112" }
+                        { nameof(MetadataProviders.Tmdb), "112" }
                     }
                 }
             },
@@ -201,8 +182,8 @@ public class MergeMoviesTaskTests : BaseTest
                     ProviderIds = new ProviderIdDictionary
                     {
                         { "KinopoiskRu", "311" },
-                        { MetadataProviders.Tmdb.ToString(), "tt311" },
-                        { MetadataProviders.Imdb.ToString(), "311" }
+                        { nameof(MetadataProviders.Tmdb), "tt311" },
+                        { nameof(MetadataProviders.Imdb), "311" }
                     }
                 }
             },
@@ -215,7 +196,7 @@ public class MergeMoviesTaskTests : BaseTest
                     IsLocked = true,
                     ProviderIds = new ProviderIdDictionary
                     {
-                        { MetadataProviders.Tmdb.ToString(), "212" }
+                        { nameof(MetadataProviders.Tmdb), "212" }
                     }
                 }
             }
@@ -257,7 +238,7 @@ public class MergeMoviesTaskTests : BaseTest
                 && nameof(Movie).Equals(query.IncludeItemTypes[0], StringComparison.Ordinal)
                 && query.MediaTypes.Length == 1
                 && nameof(MediaType.Video).Equals(query.MediaTypes[0], StringComparison.Ordinal)
-                && query.ParentIds.Length == 2
+                && query.AncestorIds.Length == 2
                 && true.Equals(query.Recursive)
                 && true.Equals(query.HasPath)
                 && false.Equals(query.IsVirtualItem))))
@@ -269,8 +250,8 @@ public class MergeMoviesTaskTests : BaseTest
                 && nameof(Movie).Equals(query.IncludeItemTypes[0], StringComparison.Ordinal)
                 && query.MediaTypes.Length == 1
                 && nameof(MediaType.Video).Equals(query.MediaTypes[0], StringComparison.Ordinal)
-                && query.ParentIds.Length == 1
-                && 2L == query.ParentIds[0]
+                && query.AncestorIds.Length == 1
+                && 2L == query.AncestorIds[0]
                 && true.Equals(query.Recursive)
                 && true.Equals(query.HasPath)
                 && false.Equals(query.IsVirtualItem))))
@@ -282,20 +263,20 @@ public class MergeMoviesTaskTests : BaseTest
                 && nameof(Movie).Equals(query.IncludeItemTypes[0], StringComparison.Ordinal)
                 && query.MediaTypes.Length == 1
                 && nameof(MediaType.Video).Equals(query.MediaTypes[0], StringComparison.Ordinal)
-                && query.ParentIds.Length == 1
-                && 3L == query.ParentIds[0]
+                && query.AncestorIds.Length == 1
+                && 3L == query.AncestorIds[0]
                 && true.Equals(query.Recursive)
                 && true.Equals(query.HasPath)
                 && false.Equals(query.IsVirtualItem))))
             .Returns(moviesVault.Values.Where(i => i.ParentId == 3L).ToArray());
 
         _ = _libraryManager // Get library by ID
-            .Setup(m => m.GetItemById(It.IsInRange(2L, 4L, Moq.Range.Inclusive)))
-            .Returns((long id) => librariesVault[id]);
+            .Setup(m => m.GetItemById(It.IsInRange(2L, 4L, Moq.Range.Inclusive), It.IsAny<IDataContext>()))
+            .Returns((long id, IDataContext _) => librariesVault[id]);
 
         _ = _libraryManager // Get movie by ID
-            .Setup(m => m.GetItemById(It.IsInRange(100L, 110L, Moq.Range.Inclusive)))
-            .Returns((long id) => moviesVault[id]);
+            .Setup(m => m.GetItemById(It.IsInRange(100L, 110L, Moq.Range.Inclusive), It.IsAny<IDataContext>()))
+            .Returns((long id, IDataContext _) => moviesVault[id]);
 
         _ = _libraryManager
             .SetupGet(m => m.RootFolderId)
@@ -303,85 +284,273 @@ public class MergeMoviesTaskTests : BaseTest
     }
 
     [Fact]
-    public async Task Execute_MergeAcrossLibs_true()
+    public async Task Execute_DefaultConfiguration_WithItems()
     {
-        Logger.Info($"Start '{nameof(Execute_MergeAcrossLibs_true)}'");
+        Logger.Info($"Start '{nameof(Execute_DefaultConfiguration_WithItems)}'");
 
         _ = _applicationPaths
             .SetupGet(m => m.PluginConfigurationsPath)
-            .Returns(nameof(Execute_MergeAcrossLibs_true));
+            .Returns(nameof(Execute_DefaultConfiguration_WithItems));
 
-        _pluginConfiguration.MergeAcrossLibraries = true;
-        _pluginConfiguration.DoNotChangeLockedItems = true;
+        _ = new Plugin(_serverApplicationHost.Object, _logManager.Object);
+        Plugin.Instance.SetAttributes("MovieAutoMerge.dll", string.Empty, new Version(1, 0, 0));
+        ServerConfigurationObject.UICulture = "en-us";
+        var mergeMoviesTask = new MergeMoviesTask(_libraryManager.Object, _logManager.Object);
+
+        Plugin.Instance.Options.SelectedLibraries = string.Empty;
+        Plugin.Instance.Options.DoNotChangeLockedItems = true;
+        Plugin.Instance.Options.MergeAcrossLibraries = true;
+        Plugin.Instance.Options.SelectedProviders = MainPageUI.DefaultProviders;
 
         using var cancellationTokenSource = new CancellationTokenSource();
-        await _mergeMoviesTask.Execute(cancellationTokenSource.Token, new EmbyProgress());
+        await mergeMoviesTask.Execute(cancellationTokenSource.Token, new EmbyProgress());
 
-        _logManager.Verify(lm => lm.GetLogger("Movie Auto Merge"), Times.Once());
-        _applicationPaths.VerifyGet(ap => ap.PluginConfigurationsPath, Times.Once());
-        _xmlSerializer.Verify(xs => xs.DeserializeFromFile(typeof(PluginConfiguration), $"{nameof(Execute_MergeAcrossLibs_true)}/MovieAutoMerge.xml"), Times.Once());
-        _libraryManager.Verify(lm => lm.GetItemList(It.IsAny<InternalItemsQuery>()), Times.Exactly(2));
-        _libraryManager.Verify(lm => lm.GetItemById(It.IsInRange(1L, 3L, Moq.Range.Inclusive)), Times.Exactly(21));
-        _libraryManager.VerifyGet(lm => lm.RootFolderId, Times.Exactly(7));
+        // main check
         _libraryManager.Verify(lm => lm.MergeItems(It.IsAny<BaseItem[]>()), Times.Exactly(2));
 
+        _logManager.Verify(lm => lm.GetLogger("Movie Auto Merge"), Times.Exactly(2));
+        _applicationPaths.VerifyGet(ap => ap.PluginConfigurationsPath, Times.Once());
+        _libraryManager.Verify(lm => lm.GetItemList(It.IsAny<InternalItemsQuery>()), Times.Exactly(2));
+        _libraryManager.Verify(lm => lm.GetItemById(It.IsInRange(1L, 3L, Moq.Range.Inclusive), null), Times.Exactly(21));
+        _libraryManager.VerifyGet(lm => lm.RootFolderId, Times.Exactly(7));
+        _fileSystem.Verify(fs => fs.DirectoryExists("Execute_DefaultConfiguration_WithItems"), Times.Once());
+        _fileSystem.Verify(fs => fs.CreateDirectory("Execute_DefaultConfiguration_WithItems"), Times.Once());
+        _fileSystem.Verify(fs => fs.FileExists("Execute_DefaultConfiguration_WithItems/MovieAutoMerge.json"), Times.Once());
+        _serverApplicationHost.Verify(sah => sah.Resolve<IJsonSerializer>(), Times.Exactly(2));
+        _serverApplicationHost.Verify(sah => sah.Resolve<IServerConfigurationManager>(), Times.Once());
+        _serverConfigurationManager.VerifyGet(scm => scm.Configuration, Times.AtMost(3));
+
         VerifyNoOtherCalls();
 
-        Logger.Info($"Finished '{nameof(Execute_MergeAcrossLibs_true)}'");
+        Logger.Info($"Finished '{nameof(Execute_DefaultConfiguration_WithItems)}'");
     }
 
     [Fact]
-    public async Task Execute_MergeAcrossLibs_false()
+    public async Task Execute_DefaultConfiguration_NoItems()
     {
+        Logger.Info($"Start '{nameof(Execute_DefaultConfiguration_NoItems)}'");
+
         _ = _applicationPaths
             .SetupGet(m => m.PluginConfigurationsPath)
-            .Returns(nameof(Execute_MergeAcrossLibs_false));
+            .Returns(nameof(Execute_DefaultConfiguration_NoItems));
 
-        _pluginConfiguration.MergeAcrossLibraries = false;
-        _pluginConfiguration.DoNotChangeLockedItems = true;
+        _ = _libraryManager // List all movies
+            .Setup(m => m.GetItemList(It.Is<InternalItemsQuery>(query =>
+                query.IncludeItemTypes.Length == 1
+                && nameof(Movie).Equals(query.IncludeItemTypes[0], StringComparison.Ordinal)
+                && query.MediaTypes.Length == 1
+                && nameof(MediaType.Video).Equals(query.MediaTypes[0], StringComparison.Ordinal)
+                && query.AncestorIds.Length == 2
+                && true.Equals(query.Recursive)
+                && true.Equals(query.HasPath)
+                && false.Equals(query.IsVirtualItem))))
+            .Returns([]);
+
+        _ = new Plugin(_serverApplicationHost.Object, _logManager.Object);
+        Plugin.Instance.SetAttributes("MovieAutoMerge.dll", string.Empty, new Version(1, 0, 0));
+        ServerConfigurationObject.UICulture = "en-us";
+        var mergeMoviesTask = new MergeMoviesTask(_libraryManager.Object, _logManager.Object);
+
+        Plugin.Instance.Options.SelectedLibraries = string.Empty;
+        Plugin.Instance.Options.DoNotChangeLockedItems = true;
+        Plugin.Instance.Options.MergeAcrossLibraries = true;
+        Plugin.Instance.Options.SelectedProviders = MainPageUI.DefaultProviders;
 
         using var cancellationTokenSource = new CancellationTokenSource();
-        await _mergeMoviesTask.Execute(cancellationTokenSource.Token, new EmbyProgress());
+        await mergeMoviesTask.Execute(cancellationTokenSource.Token, new EmbyProgress());
 
-        _logManager.Verify(lm => lm.GetLogger("Movie Auto Merge"), Times.Once());
+        // main check
+        _libraryManager.Verify(lm => lm.MergeItems(It.IsAny<BaseItem[]>()), Times.Never());
+
+        _logManager.Verify(lm => lm.GetLogger("Movie Auto Merge"), Times.Exactly(2));
         _applicationPaths.VerifyGet(ap => ap.PluginConfigurationsPath, Times.Once());
-        _xmlSerializer.Verify(xs => xs.DeserializeFromFile(typeof(PluginConfiguration), $"{nameof(Execute_MergeAcrossLibs_false)}/MovieAutoMerge.xml"), Times.Once());
-        _libraryManager.Verify(lm => lm.GetItemList(It.IsAny<InternalItemsQuery>()), Times.Exactly(4));
-        _libraryManager.Verify(lm => lm.GetItemById(It.IsInRange(1L, 3L, Moq.Range.Inclusive)), Times.Exactly(21));
-        _libraryManager.VerifyGet(lm => lm.RootFolderId, Times.Exactly(7));
+        _libraryManager.Verify(lm => lm.GetItemList(It.IsAny<InternalItemsQuery>()), Times.Exactly(2));
+        _fileSystem.Verify(fs => fs.DirectoryExists("Execute_DefaultConfiguration_NoItems"), Times.Once());
+        _fileSystem.Verify(fs => fs.CreateDirectory("Execute_DefaultConfiguration_NoItems"), Times.Once());
+        _fileSystem.Verify(fs => fs.FileExists("Execute_DefaultConfiguration_NoItems/MovieAutoMerge.json"), Times.Once());
+        _serverApplicationHost.Verify(sah => sah.Resolve<IJsonSerializer>(), Times.Exactly(2));
+        _serverApplicationHost.Verify(sah => sah.Resolve<IServerConfigurationManager>(), Times.Once());
+        _serverConfigurationManager.VerifyGet(scm => scm.Configuration, Times.AtMost(3));
+
+        VerifyNoOtherCalls();
+
+        Logger.Info($"Finished '{nameof(Execute_DefaultConfiguration_NoItems)}'");
+    }
+
+    [Fact]
+    public async Task Execute_WithProvider()
+    {
+        Logger.Info($"Start '{nameof(Execute_WithProvider)}'");
+
+        _ = _applicationPaths
+            .SetupGet(m => m.PluginConfigurationsPath)
+            .Returns(nameof(Execute_WithProvider));
+
+        _ = new Plugin(_serverApplicationHost.Object, _logManager.Object);
+        Plugin.Instance.SetAttributes("MovieAutoMerge.dll", string.Empty, new Version(1, 0, 0));
+        ServerConfigurationObject.UICulture = "en-us";
+        var mergeMoviesTask = new MergeMoviesTask(_libraryManager.Object, _logManager.Object);
+
+        // main condition
+        Plugin.Instance.Options.SelectedProviders = nameof(MetadataProviders.Tmdb);
+
+        Plugin.Instance.Options.SelectedLibraries = string.Empty;
+        Plugin.Instance.Options.DoNotChangeLockedItems = true;
+        Plugin.Instance.Options.MergeAcrossLibraries = true;
+
+        using var cancellationTokenSource = new CancellationTokenSource();
+        await mergeMoviesTask.Execute(cancellationTokenSource.Token, new EmbyProgress());
+
+        // mian check
         _libraryManager.Verify(lm => lm.MergeItems(It.IsAny<BaseItem[]>()), Times.Once());
 
+        _logManager.Verify(lm => lm.GetLogger("Movie Auto Merge"), Times.Exactly(2));
+        _applicationPaths.VerifyGet(ap => ap.PluginConfigurationsPath, Times.Once());
+        _libraryManager.Verify(lm => lm.GetItemList(It.IsAny<InternalItemsQuery>()), Times.Exactly(2));
+        _libraryManager.Verify(lm => lm.GetItemById(It.IsInRange(1L, 3L, Moq.Range.Inclusive), null), Times.Exactly(21));
+        _libraryManager.VerifyGet(lm => lm.RootFolderId, Times.Exactly(7));
+        _fileSystem.Verify(fs => fs.DirectoryExists("Execute_WithProvider"), Times.Once());
+        _fileSystem.Verify(fs => fs.CreateDirectory("Execute_WithProvider"), Times.Once());
+        _fileSystem.Verify(fs => fs.FileExists("Execute_WithProvider/MovieAutoMerge.json"), Times.Once());
+        _serverApplicationHost.Verify(sah => sah.Resolve<IJsonSerializer>(), Times.Exactly(2));
+        _serverApplicationHost.Verify(sah => sah.Resolve<IServerConfigurationManager>(), Times.Once());
+        _serverConfigurationManager.VerifyGet(scm => scm.Configuration, Times.AtMost(3));
+
         VerifyNoOtherCalls();
 
-        Logger.Info($"Finished '{nameof(Execute_MergeAcrossLibs_false)}'");
+        Logger.Info($"Finished '{nameof(Execute_WithProvider)}'");
     }
 
     [Fact]
-    public async Task Execute_DoNotChangeLockedItems_false()
+    public async Task Execute_WithLibrary()
     {
-        Logger.Info($"Start '{nameof(Execute_DoNotChangeLockedItems_false)}'");
+        Logger.Info($"Start '{nameof(Execute_WithLibrary)}'");
 
         _ = _applicationPaths
             .SetupGet(m => m.PluginConfigurationsPath)
-            .Returns(nameof(Execute_DoNotChangeLockedItems_false));
+            .Returns(nameof(Execute_WithLibrary));
 
-        _pluginConfiguration.MergeAcrossLibraries = true;
-        _pluginConfiguration.DoNotChangeLockedItems = false;
+        _ = new Plugin(_serverApplicationHost.Object, _logManager.Object);
+        Plugin.Instance.SetAttributes("MovieAutoMerge.dll", string.Empty, new Version(1, 0, 0));
+        ServerConfigurationObject.UICulture = "en-us";
+        var mergeMoviesTask = new MergeMoviesTask(_libraryManager.Object, _logManager.Object);
+
+        // main condition
+        Plugin.Instance.Options.SelectedLibraries = "2";
+
+        Plugin.Instance.Options.SelectedProviders = MainPageUI.DefaultProviders;
+        Plugin.Instance.Options.DoNotChangeLockedItems = true;
+        Plugin.Instance.Options.MergeAcrossLibraries = true;
 
         using var cancellationTokenSource = new CancellationTokenSource();
-        await _mergeMoviesTask.Execute(cancellationTokenSource.Token, new EmbyProgress());
+        await mergeMoviesTask.Execute(cancellationTokenSource.Token, new EmbyProgress());
 
-        _logManager.Verify(lm => lm.GetLogger("Movie Auto Merge"), Times.Once());
+        // mian check
+        _libraryManager.Verify(lm => lm.MergeItems(It.IsAny<BaseItem[]>()), Times.Once());
+
+        _logManager.Verify(lm => lm.GetLogger("Movie Auto Merge"), Times.Exactly(2));
         _applicationPaths.VerifyGet(ap => ap.PluginConfigurationsPath, Times.Once());
-        _xmlSerializer.Verify(xs => xs.DeserializeFromFile(typeof(PluginConfiguration), $"{nameof(Execute_DoNotChangeLockedItems_false)}/MovieAutoMerge.xml"), Times.Once());
-        _libraryManager.Verify(lm => lm.GetItemList(It.IsAny<InternalItemsQuery>()), Times.Exactly(2));
-        _libraryManager.Verify(lm => lm.GetItemById(It.IsInRange(1L, 3L, Moq.Range.Inclusive)), Times.Exactly(30));
-        _libraryManager.VerifyGet(lm => lm.RootFolderId, Times.Exactly(10));
-        _libraryManager.Verify(lm => lm.MergeItems(It.IsAny<BaseItem[]>()), Times.Exactly(3));
+        _libraryManager.Verify(lm => lm.GetItemList(It.IsAny<InternalItemsQuery>()), Times.Once());
+        _libraryManager.Verify(lm => lm.GetItemById(It.IsInRange(1L, 3L, Moq.Range.Inclusive), null), Times.Exactly(15));
+        _libraryManager.VerifyGet(lm => lm.RootFolderId, Times.Exactly(5));
+        _fileSystem.Verify(fs => fs.DirectoryExists("Execute_WithLibrary"), Times.Once());
+        _fileSystem.Verify(fs => fs.CreateDirectory("Execute_WithLibrary"), Times.Once());
+        _fileSystem.Verify(fs => fs.FileExists("Execute_WithLibrary/MovieAutoMerge.json"), Times.Once());
+        _serverApplicationHost.Verify(sah => sah.Resolve<IJsonSerializer>(), Times.Exactly(2));
+        _serverApplicationHost.Verify(sah => sah.Resolve<IServerConfigurationManager>(), Times.Once());
+        _serverConfigurationManager.VerifyGet(scm => scm.Configuration, Times.AtMost(3));
 
         VerifyNoOtherCalls();
 
-        Logger.Info($"Finished '{nameof(Execute_DoNotChangeLockedItems_false)}'");
+        Logger.Info($"Finished '{nameof(Execute_WithLibrary)}'");
+    }
+
+    [Fact]
+    public async Task Execute_DoNotChangeLockedItems_False()
+    {
+        Logger.Info($"Start '{nameof(Execute_DoNotChangeLockedItems_False)}'");
+
+        _ = _applicationPaths
+            .SetupGet(m => m.PluginConfigurationsPath)
+            .Returns(nameof(Execute_DoNotChangeLockedItems_False));
+
+        _ = new Plugin(_serverApplicationHost.Object, _logManager.Object);
+        Plugin.Instance.SetAttributes("MovieAutoMerge.dll", string.Empty, new Version(1, 0, 0));
+        ServerConfigurationObject.UICulture = "en-us";
+        var mergeMoviesTask = new MergeMoviesTask(_libraryManager.Object, _logManager.Object);
+
+        // main condition
+        Plugin.Instance.Options.DoNotChangeLockedItems = false;
+
+        Plugin.Instance.Options.SelectedLibraries = string.Empty;
+        Plugin.Instance.Options.MergeAcrossLibraries = true;
+        Plugin.Instance.Options.SelectedProviders = MainPageUI.DefaultProviders;
+
+        using var cancellationTokenSource = new CancellationTokenSource();
+        await mergeMoviesTask.Execute(cancellationTokenSource.Token, new EmbyProgress());
+
+        // main check
+        _libraryManager.Verify(lm => lm.MergeItems(It.IsAny<BaseItem[]>()), Times.Exactly(3));
+
+        _logManager.Verify(lm => lm.GetLogger("Movie Auto Merge"), Times.Exactly(2));
+        _applicationPaths.VerifyGet(ap => ap.PluginConfigurationsPath, Times.Once());
+        _libraryManager.Verify(lm => lm.GetItemList(It.IsAny<InternalItemsQuery>()), Times.Exactly(2));
+        _libraryManager.Verify(lm => lm.GetItemById(It.IsInRange(1L, 3L, Moq.Range.Inclusive), null), Times.Exactly(30));
+        _libraryManager.VerifyGet(lm => lm.RootFolderId, Times.Exactly(10));
+        _fileSystem.Verify(fs => fs.DirectoryExists("Execute_DoNotChangeLockedItems_False"), Times.Once());
+        _fileSystem.Verify(fs => fs.CreateDirectory("Execute_DoNotChangeLockedItems_False"), Times.Once());
+        _fileSystem.Verify(fs => fs.FileExists("Execute_DoNotChangeLockedItems_False/MovieAutoMerge.json"), Times.Once());
+        _serverApplicationHost.Verify(sah => sah.Resolve<IJsonSerializer>(), Times.Exactly(2));
+        _serverApplicationHost.Verify(sah => sah.Resolve<IServerConfigurationManager>(), Times.Once());
+        _serverConfigurationManager.VerifyGet(scm => scm.Configuration, Times.AtMost(3));
+
+        VerifyNoOtherCalls();
+
+        Logger.Info($"Finished '{nameof(Execute_DoNotChangeLockedItems_False)}'");
+    }
+
+    [Fact]
+    public async Task Execute_MergeAcrossLibraries_False()
+    {
+        Logger.Info($"Start '{nameof(Execute_MergeAcrossLibraries_False)}'");
+
+        _ = _applicationPaths
+            .SetupGet(m => m.PluginConfigurationsPath)
+            .Returns(nameof(Execute_MergeAcrossLibraries_False));
+
+        _ = new Plugin(_serverApplicationHost.Object, _logManager.Object);
+        Plugin.Instance.SetAttributes("MovieAutoMerge.dll", string.Empty, new Version(1, 0, 0));
+        ServerConfigurationObject.UICulture = "en-us";
+        var mergeMoviesTask = new MergeMoviesTask(_libraryManager.Object, _logManager.Object);
+
+        // main condition
+        Plugin.Instance.Options.MergeAcrossLibraries = false;
+
+        Plugin.Instance.Options.DoNotChangeLockedItems = true;
+        Plugin.Instance.Options.SelectedLibraries = string.Empty;
+        Plugin.Instance.Options.SelectedProviders = MainPageUI.DefaultProviders;
+
+        using var cancellationTokenSource = new CancellationTokenSource();
+        await mergeMoviesTask.Execute(cancellationTokenSource.Token, new EmbyProgress());
+
+        // main check
+        _libraryManager.Verify(lm => lm.MergeItems(It.IsAny<BaseItem[]>()), Times.Once());
+
+        _logManager.Verify(lm => lm.GetLogger("Movie Auto Merge"), Times.Exactly(2));
+        _applicationPaths.VerifyGet(ap => ap.PluginConfigurationsPath, Times.Once());
+        _libraryManager.Verify(lm => lm.GetItemList(It.IsAny<InternalItemsQuery>()), Times.Exactly(4));
+        _libraryManager.Verify(lm => lm.GetItemById(It.IsInRange(1L, 3L, Moq.Range.Inclusive), null), Times.Exactly(21));
+        _libraryManager.VerifyGet(lm => lm.RootFolderId, Times.Exactly(7));
+        _fileSystem.Verify(fs => fs.DirectoryExists("Execute_MergeAcrossLibraries_False"), Times.Once());
+        _fileSystem.Verify(fs => fs.CreateDirectory("Execute_MergeAcrossLibraries_False"), Times.Once());
+        _fileSystem.Verify(fs => fs.FileExists("Execute_MergeAcrossLibraries_False/MovieAutoMerge.json"), Times.Once());
+        _serverApplicationHost.Verify(sah => sah.Resolve<IJsonSerializer>(), Times.Exactly(2));
+        _serverApplicationHost.Verify(sah => sah.Resolve<IServerConfigurationManager>(), Times.Once());
+        _serverConfigurationManager.VerifyGet(scm => scm.Configuration, Times.AtMost(3));
+
+        VerifyNoOtherCalls();
+
+        Logger.Info($"Finished '{nameof(Execute_MergeAcrossLibraries_False)}'");
     }
 
     [Fact]
@@ -389,12 +558,14 @@ public class MergeMoviesTaskTests : BaseTest
     {
         Logger.Info($"Start '{nameof(ForCodeCoverage)}'");
 
-        _mergeMoviesTask.IsHidden.Should().BeFalse();
-        _mergeMoviesTask.IsEnabled.Should().BeTrue();
-        _mergeMoviesTask.IsLogged.Should().BeTrue();
-        _mergeMoviesTask.Key.Should().NotBeNull();
+        var mergeMoviesTask = new MergeMoviesTask(_libraryManager.Object, _logManager.Object);
 
-        _mergeMoviesTask.GetDefaultTriggers().Should().BeEmpty();
+        mergeMoviesTask.IsHidden.Should().BeFalse();
+        mergeMoviesTask.IsEnabled.Should().BeTrue();
+        mergeMoviesTask.IsLogged.Should().BeTrue();
+        mergeMoviesTask.Key.Should().NotBeNull();
+
+        mergeMoviesTask.GetDefaultTriggers().Should().BeEmpty();
 
         _logManager.Verify(lm => lm.GetLogger("Movie Auto Merge"), Times.Once());
         VerifyNoOtherCalls();
@@ -407,24 +578,20 @@ public class MergeMoviesTaskTests : BaseTest
     {
         Logger.Info($"Start '{nameof(GetTranslation_RU)}'");
 
-        _ = _serverConfigurationManager
-            .SetupGet(scm => scm.Configuration)
-            .Returns(new ServerConfiguration
-            {
-                UICulture = "ru"
-            });
+        ServerConfigurationObject.UICulture = "ru";
+        PluginResource.JsonSerializer = _jsonSerializer;
+        PluginResource.ServerConfigurationManager = _serverConfigurationManager.Object;
 
-        var translation = GetTranslation("ScheduledTasks.MergeMoviesTask", "ru");
+        var name = PluginResource.ResourceManager.GetString("MergeMoviesTask_Name");
+        var description = PluginResource.ResourceManager.GetString("MergeMoviesTask_Description");
+        var category = PluginResource.ResourceManager.GetString("PluginTasks_Category");
 
-        translation?.Name.Should().NotBeNullOrWhiteSpace();
-        _mergeMoviesTask.Name.Should().Be(translation!.Name);
-        translation.Description.Should().NotBeNullOrWhiteSpace();
-        _mergeMoviesTask.Description.Should().Be(translation.Description);
-        translation.Category.Should().NotBeNullOrWhiteSpace();
-        _mergeMoviesTask.Category.Should().Be(translation.Category);
+        Assert.Equal("Объединение фильмов", name);
+        Assert.Equal("Объединить все версии фильмов согласно настройкам", description);
+        Assert.Equal("Объединение фильмов", category);
 
-        _logManager.Verify(lm => lm.GetLogger("Movie Auto Merge"), Times.Once());
-        _serverConfigurationManager.VerifyGet(scm => scm.Configuration, Times.Exactly(6));
+        _serverConfigurationManager.VerifyGet(scm => scm.Configuration, Times.AtMost(3));
+
         VerifyNoOtherCalls();
 
         Logger.Info($"Finished '{nameof(GetTranslation_RU)}'");
@@ -435,24 +602,20 @@ public class MergeMoviesTaskTests : BaseTest
     {
         Logger.Info($"Start '{nameof(GetTranslation_EnUs)}'");
 
-        _ = _serverConfigurationManager
-            .SetupGet(scm => scm.Configuration)
-            .Returns(new ServerConfiguration
-            {
-                UICulture = "en-us"
-            });
+        ServerConfigurationObject.UICulture = "en-us";
+        PluginResource.JsonSerializer = _jsonSerializer;
+        PluginResource.ServerConfigurationManager = _serverConfigurationManager.Object;
 
-        var translation = GetTranslation("ScheduledTasks.MergeMoviesTask", "en-US");
+        var name = PluginResource.ResourceManager.GetString("MergeMoviesTask_Name");
+        var description = PluginResource.ResourceManager.GetString("MergeMoviesTask_Description");
+        var category = PluginResource.ResourceManager.GetString("PluginTasks_Category");
 
-        translation?.Name.Should().NotBeNullOrWhiteSpace();
-        _mergeMoviesTask.Name.Should().Be(translation!.Name);
-        translation.Description.Should().NotBeNullOrWhiteSpace();
-        _mergeMoviesTask.Description.Should().Be(translation.Description);
-        translation.Category.Should().NotBeNullOrWhiteSpace();
-        _mergeMoviesTask.Category.Should().Be(translation.Category);
+        Assert.Equal("Merge movies", name);
+        Assert.Equal("Merge all versioned movies based on configuration", description);
+        Assert.Equal("Merge Movies", category);
 
-        _logManager.Verify(lm => lm.GetLogger("Movie Auto Merge"), Times.Once());
-        _serverConfigurationManager.VerifyGet(scm => scm.Configuration, Times.Exactly(6));
+        _serverConfigurationManager.VerifyGet(scm => scm.Configuration, Times.AtMost(3));
+
         VerifyNoOtherCalls();
 
         Logger.Info($"Finished '{nameof(GetTranslation_EnUs)}'");
@@ -463,24 +626,20 @@ public class MergeMoviesTaskTests : BaseTest
     {
         Logger.Info($"Start '{nameof(GetTranslation_BG)}'");
 
-        _ = _serverConfigurationManager
-            .SetupGet(scm => scm.Configuration)
-            .Returns(new ServerConfiguration
-            {
-                UICulture = "bg"
-            });
+        ServerConfigurationObject.UICulture = "bg";
+        PluginResource.JsonSerializer = _jsonSerializer;
+        PluginResource.ServerConfigurationManager = _serverConfigurationManager.Object;
 
-        var translation = GetTranslation("ScheduledTasks.MergeMoviesTask", "en-US");
+        var name = PluginResource.ResourceManager.GetString("MergeMoviesTask_Name");
+        var description = PluginResource.ResourceManager.GetString("MergeMoviesTask_Description");
+        var category = PluginResource.ResourceManager.GetString("PluginTasks_Category");
 
-        translation?.Name.Should().NotBeNullOrWhiteSpace();
-        _mergeMoviesTask.Name.Should().Be(translation!.Name);
-        translation.Description.Should().NotBeNullOrWhiteSpace();
-        _mergeMoviesTask.Description.Should().Be(translation.Description);
-        translation.Category.Should().NotBeNullOrWhiteSpace();
-        _mergeMoviesTask.Category.Should().Be(translation.Category);
+        Assert.Equal("Merge movies", name);
+        Assert.Equal("Merge all versioned movies based on configuration", description);
+        Assert.Equal("Merge Movies", category);
 
-        _logManager.Verify(lm => lm.GetLogger("Movie Auto Merge"), Times.Once());
-        _serverConfigurationManager.VerifyGet(scm => scm.Configuration, Times.Exactly(6));
+        _serverConfigurationManager.VerifyGet(scm => scm.Configuration, Times.AtMost(3));
+
         VerifyNoOtherCalls();
 
         Logger.Info($"Finished '{nameof(GetTranslation_EnUs)}'");

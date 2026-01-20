@@ -11,34 +11,62 @@ using MediaBrowser.Model.Serialization;
 
 using Moq;
 
-using MovieAutoMerge.Configuration;
-using MovieAutoMerge.ScheduledTasks.Model;
 using MovieAutoMerge.Tests.Utils;
-using MovieAutoMerge.Utils;
 
 namespace MovieAutoMerge.Tests.Tests;
 
 public class BaseTest
 {
-    private static readonly NLog.ILogger Logger = NLog.LogManager.GetLogger(nameof(BaseTest));
+    private static readonly NLog.Logger Logger = NLog.LogManager.GetLogger(nameof(BaseTest));
 
     protected readonly Mock<ILogManager> _logManager = new();
+    protected readonly Mock<IServerApplicationHost> _serverApplicationHost = new();
+    protected readonly EmbyJsonSerializer _jsonSerializer = new();
     protected readonly Mock<IFileSystem> _fileSystem = new();
     protected readonly Mock<IApplicationPaths> _applicationPaths = new();
-    protected readonly Mock<IXmlSerializer> _xmlSerializer = new();
-    protected readonly Mock<ILibraryManager> _libraryManager = new();
-    protected readonly Mock<ILocalizationManager> _localizationManager = new();
     protected readonly Mock<IServerConfigurationManager> _serverConfigurationManager = new();
-    protected readonly Mock<IServerApplicationHost> _serverApplicationHost = new();
+    protected static readonly ServerConfiguration ServerConfigurationObject = new();
+    protected readonly Mock<ILibraryManager> _libraryManager = new();
+
+
+    protected readonly Mock<IXmlSerializer> _xmlSerializer = new();
+    protected readonly Mock<ILocalizationManager> _localizationManager = new();
     protected readonly Mock<IItemRepository> _itemRepository = new();
 
-    protected readonly EmbyJsonSerializer _jsonSerializer = new();
 
-    internal TaskTranslation? GetTranslation(string key, string language)
+    protected BaseTest()
     {
-        var resourcePath = $"MovieAutoMerge.i18n.{key}.{language}.json";
-        using var stream = typeof(EmbyHelper).Assembly.GetManifestResourceStream(resourcePath);
-        return _jsonSerializer.DeserializeFromStream<TaskTranslation>(stream!);
+        _ = _serverApplicationHost
+            .Setup(sah => sah.Resolve<IJsonSerializer>())
+            .Returns(_jsonSerializer);
+
+        _ = _serverApplicationHost
+            .Setup(sah => sah.Resolve<IFileSystem>())
+            .Returns(_fileSystem.Object);
+
+        _ = _serverApplicationHost
+            .Setup(sah => sah.Resolve<IApplicationPaths>())
+            .Returns(_applicationPaths.Object);
+
+        _ = _serverApplicationHost
+            .Setup(sah => sah.Resolve<IServerConfigurationManager>())
+            .Returns(_serverConfigurationManager.Object);
+
+
+        _ = _logManager
+            .Setup(lm => lm.GetLogger(Plugin.PluginName))
+            .Returns(new EmbyLogger(NLog.LogManager.GetLogger(Plugin.PluginName)));
+
+
+        _ = _fileSystem
+            .Setup(fs => fs.FileExists(It.IsAny<string>()))
+            .Returns(false);
+
+
+        _ = _serverConfigurationManager
+            .SetupGet(scm => scm.Configuration)
+            .Returns(ServerConfigurationObject);
+
     }
 
     protected void VerifyNoOtherCalls()
@@ -66,7 +94,7 @@ public class BaseTest
     private static void PrintMockInvocations(Mock mock)
     {
         Logger.Info($"Name: {mock.Object.GetType().Name}");
-        foreach (IInvocation? invocation in mock.Invocations)
+        foreach (var invocation in mock.Invocations)
         {
             Logger.Info(invocation);
         }
@@ -85,21 +113,21 @@ public class BaseTest
         PrintMockInvocations(_xmlSerializer);
     }
 
-    protected void CommonConfig(PluginConfiguration pluginConfiguration)
-    {
-        _ = _logManager
-            .Setup(lm => lm.GetLogger(Plugin.Instance.Name))
-            .Returns(new EmbyLogger(NLog.LogManager.GetLogger(Plugin.Instance.Name)));
-
-        _ = _xmlSerializer
-            .Setup(xs => xs.DeserializeFromFile(typeof(PluginConfiguration), It.IsAny<string>()))
-            .Returns(pluginConfiguration);
-
-        _ = _serverConfigurationManager
-            .SetupGet(scm => scm.Configuration)
-            .Returns(new ServerConfiguration
-            {
-                UICulture = "ru"
-            });
-    }
+    // protected void CommonConfig(PluginConfiguration pluginConfiguration)
+    // {
+    //     _ = _logManager
+    //         .Setup(lm => lm.GetLogger(Plugin.Instance.Name))
+    //         .Returns(new EmbyLogger(NLog.LogManager.GetLogger(Plugin.Instance.Name)));
+    //
+    //     _ = _xmlSerializer
+    //         .Setup(xs => xs.DeserializeFromFile(typeof(PluginConfiguration), It.IsAny<string>()))
+    //         .Returns(pluginConfiguration);
+    //
+    //     _ = _serverConfigurationManager
+    //         .SetupGet(scm => scm.Configuration)
+    //         .Returns(new ServerConfiguration
+    //         {
+    //             UICulture = "ru"
+    //         });
+    // }
 }

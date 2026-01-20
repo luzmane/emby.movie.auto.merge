@@ -1,13 +1,15 @@
 using FluentAssertions;
 
+using MediaBrowser.Controller.Configuration;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.Movies;
-using MediaBrowser.Model.Configuration;
+using MediaBrowser.Model.Data;
 using MediaBrowser.Model.Entities;
+using MediaBrowser.Model.Serialization;
 
 using Moq;
 
-using MovieAutoMerge.Configuration;
+using MovieAutoMerge.I18n;
 using MovieAutoMerge.ScheduledTasks;
 using MovieAutoMerge.Tests.Utils;
 
@@ -15,46 +17,25 @@ namespace MovieAutoMerge.Tests.Tests;
 
 public class SplitMoviesTaskTests : BaseTest
 {
-    private static readonly NLog.ILogger Logger = NLog.LogManager.GetLogger(nameof(SplitMoviesTaskTests));
+    private static readonly NLog.Logger Logger = NLog.LogManager.GetLogger(nameof(SplitMoviesTaskTests));
 
-    private readonly PluginConfiguration _pluginConfiguration;
-    private readonly SplitMoviesTask _splitMoviesTask;
     private Dictionary<long, BaseItem> _librariesVault;
     private Dictionary<long, BaseItem> _moviesVault;
 
     public SplitMoviesTaskTests()
     {
-        _pluginConfiguration = new PluginConfiguration();
-
         BaseItem.ConfigurationManager = _serverConfigurationManager.Object;
         BaseItem.FileSystem = _fileSystem.Object;
         BaseItem.LibraryManager = _libraryManager.Object;
         BaseItem.LocalizationManager = _localizationManager.Object;
         BaseItem.ItemRepository = _itemRepository.Object;
         BaseItem.ApplicationHost = _serverApplicationHost.Object;
-        CollectionFolder.XmlSerializer = _xmlSerializer.Object;
 
-        _ = new Plugin(
-            _applicationPaths.Object,
-            _xmlSerializer.Object,
-            _libraryManager.Object
-        );
-        Plugin.Instance.SetAttributes("MovieAutoMerge.dll", string.Empty, new Version(1, 0, 0));
-
-        CommonConfig();
-
-        _splitMoviesTask = new SplitMoviesTask(
-            _libraryManager.Object,
-            _logManager.Object,
-            _serverConfigurationManager.Object,
-            _jsonSerializer
-        );
+        CommonCtorConfig();
     }
 
-    private void CommonConfig()
+    private void CommonCtorConfig()
     {
-        base.CommonConfig(_pluginConfiguration);
-
         _librariesVault = new Dictionary<long, BaseItem>
         {
             {
@@ -93,7 +74,7 @@ public class SplitMoviesTaskTests : BaseTest
                     ParentId = 2L,
                     ProviderIds = new ProviderIdDictionary
                     {
-                        { MetadataProviders.Tmdb.ToString(), "111" }
+                        { nameof(MetadataProviders.Tmdb), "111" }
                     },
                     PresentationUniqueKey = "merged_111"
                 }
@@ -106,7 +87,7 @@ public class SplitMoviesTaskTests : BaseTest
                     ParentId = 2L,
                     ProviderIds = new ProviderIdDictionary
                     {
-                        { MetadataProviders.Tmdb.ToString(), "111" }
+                        { nameof(MetadataProviders.Tmdb), "111" }
                     },
                     PresentationUniqueKey = "merged_111"
                 }
@@ -119,7 +100,7 @@ public class SplitMoviesTaskTests : BaseTest
                     ParentId = 2L,
                     ProviderIds = new ProviderIdDictionary
                     {
-                        { MetadataProviders.Tmdb.ToString(), "111" }
+                        { nameof(MetadataProviders.Tmdb), "111" }
                     },
                     PresentationUniqueKey = "merged_111"
                 }
@@ -133,7 +114,7 @@ public class SplitMoviesTaskTests : BaseTest
                     IsLocked = true,
                     ProviderIds = new ProviderIdDictionary
                     {
-                        { MetadataProviders.Tmdb.ToString(), "111" }
+                        { nameof(MetadataProviders.Tmdb), "111" }
                     },
                     PresentationUniqueKey = "merged_111"
                 }
@@ -146,7 +127,7 @@ public class SplitMoviesTaskTests : BaseTest
                     ParentId = 2L,
                     ProviderIds = new ProviderIdDictionary
                     {
-                        { MetadataProviders.Tmdb.ToString(), "111" }
+                        { nameof(MetadataProviders.Tmdb), "111" }
                     },
                     PresentationUniqueKey = "merged_111_2"
                 }
@@ -159,7 +140,7 @@ public class SplitMoviesTaskTests : BaseTest
                     ParentId = 2L,
                     ProviderIds = new ProviderIdDictionary
                     {
-                        { MetadataProviders.Tmdb.ToString(), "111" }
+                        { nameof(MetadataProviders.Tmdb), "111" }
                     },
                     PresentationUniqueKey = "merged_111_2"
                 }
@@ -172,7 +153,7 @@ public class SplitMoviesTaskTests : BaseTest
                     ParentId = 2L,
                     ProviderIds = new ProviderIdDictionary
                     {
-                        { MetadataProviders.Tmdb.ToString(), "222" }
+                        { nameof(MetadataProviders.Tmdb), "222" }
                     },
                     PresentationUniqueKey = "merged_222"
                 }
@@ -185,7 +166,7 @@ public class SplitMoviesTaskTests : BaseTest
                     ParentId = 2L,
                     ProviderIds = new ProviderIdDictionary
                     {
-                        { MetadataProviders.Tmdb.ToString(), "222" }
+                        { nameof(MetadataProviders.Tmdb), "222" }
                     },
                     PresentationUniqueKey = "merged_222"
                 }
@@ -198,7 +179,7 @@ public class SplitMoviesTaskTests : BaseTest
                     ParentId = 2L,
                     ProviderIds = new ProviderIdDictionary
                     {
-                        { MetadataProviders.Tmdb.ToString(), "987" }
+                        { nameof(MetadataProviders.Tmdb), "987" }
                     },
                     PresentationUniqueKey = "no pair"
                 }
@@ -253,11 +234,18 @@ public class SplitMoviesTaskTests : BaseTest
             .Setup(m => m.GetItemById(It.IsInRange(100L, 110L, Moq.Range.Inclusive)))
             .Returns((long id) => _moviesVault[id]);
 
+        _ = _libraryManager // Get library by ID
+            .Setup(m => m.GetItemById(It.IsInRange(2L, 4L, Moq.Range.Inclusive), It.IsAny<IDataContext>()))
+            .Returns((long id, IDataContext _) => _librariesVault[id]);
+
+        _ = _libraryManager // Get movie by ID
+            .Setup(m => m.GetItemById(It.IsInRange(100L, 110L, Moq.Range.Inclusive), It.IsAny<IDataContext>()))
+            .Returns((long id, IDataContext _) => _moviesVault[id]);
+
         _ = _libraryManager
             .SetupGet(m => m.RootFolderId)
             .Returns(1L);
     }
-
 
     [Fact]
     public async Task Execute_DoNotChangeLockedItems_true()
@@ -268,19 +256,31 @@ public class SplitMoviesTaskTests : BaseTest
             .SetupGet(m => m.PluginConfigurationsPath)
             .Returns(nameof(Execute_DoNotChangeLockedItems_true));
 
-        _pluginConfiguration.DoNotChangeLockedItems = true;
+        _ = new Plugin(_serverApplicationHost.Object, _logManager.Object);
+        Plugin.Instance.SetAttributes("MovieAutoMerge.dll", string.Empty, new Version(1, 0, 0));
+        ServerConfigurationObject.UICulture = "en-us";
+        var splitMoviesTask = new SplitMoviesTask(_libraryManager.Object, _logManager.Object);
+
+        Plugin.Instance.Options.DoNotChangeLockedItems = true;
 
         using var cancellationTokenSource = new CancellationTokenSource();
-        await _splitMoviesTask.Execute(cancellationTokenSource.Token, new EmbyProgress());
+        await splitMoviesTask.Execute(cancellationTokenSource.Token, new EmbyProgress());
 
-        _logManager.Verify(lm => lm.GetLogger("Movie Auto Merge"), Times.Once());
+        // the main check
+        _libraryManager.Verify(lm => lm.SplitItems(It.IsAny<BaseItem>()), Times.Exactly(4));
+
+        _logManager.Verify(lm => lm.GetLogger("Movie Auto Merge"), Times.Exactly(2));
         _applicationPaths.VerifyGet(ap => ap.PluginConfigurationsPath, Times.Once());
-        _xmlSerializer.Verify(xs => xs.DeserializeFromFile(typeof(PluginConfiguration), $"{nameof(Execute_DoNotChangeLockedItems_true)}/MovieAutoMerge.xml"), Times.Once());
         _libraryManager.Verify(lm => lm.GetItemList(It.IsAny<InternalItemsQuery>()), Times.Once());
-        _libraryManager.Verify(lm => lm.GetItemById(It.IsInRange(1L, 3L, Moq.Range.Inclusive)), Times.Exactly(27));
+        _libraryManager.Verify(lm => lm.GetItemById(It.IsInRange(1L, 3L, Moq.Range.Inclusive), It.IsAny<IDataContext>()), Times.Exactly(27));
         _libraryManager.Verify(lm => lm.GetInternalItemIds(It.IsAny<InternalItemsQuery>()), Times.Exactly(33));
         _libraryManager.VerifyGet(lm => lm.RootFolderId, Times.Exactly(9));
-        _libraryManager.Verify(lm => lm.SplitItems(It.IsAny<BaseItem>()), Times.Exactly(4));
+        _fileSystem.Verify(fs => fs.DirectoryExists("Execute_DoNotChangeLockedItems_true"), Times.Once());
+        _fileSystem.Verify(fs => fs.CreateDirectory("Execute_DoNotChangeLockedItems_true"), Times.Once());
+        _fileSystem.Verify(fs => fs.FileExists("Execute_DoNotChangeLockedItems_true/MovieAutoMerge.json"), Times.Once());
+        _serverApplicationHost.Verify(sah => sah.Resolve<IJsonSerializer>(), Times.Exactly(2));
+        _serverApplicationHost.Verify(sah => sah.Resolve<IServerConfigurationManager>(), Times.Once());
+        _serverConfigurationManager.VerifyGet(scm => scm.Configuration, Times.AtMost(3));
 
         VerifyNoOtherCalls();
 
@@ -296,19 +296,31 @@ public class SplitMoviesTaskTests : BaseTest
             .SetupGet(m => m.PluginConfigurationsPath)
             .Returns(nameof(Execute_DoNotChangeLockedItems_false));
 
-        _pluginConfiguration.DoNotChangeLockedItems = false;
+        _ = new Plugin(_serverApplicationHost.Object, _logManager.Object);
+        Plugin.Instance.SetAttributes("MovieAutoMerge.dll", string.Empty, new Version(1, 0, 0));
+        ServerConfigurationObject.UICulture = "en-us";
+        var splitMoviesTask = new SplitMoviesTask(_libraryManager.Object, _logManager.Object);
+
+        Plugin.Instance.Options.DoNotChangeLockedItems = false;
 
         using var cancellationTokenSource = new CancellationTokenSource();
-        await _splitMoviesTask.Execute(cancellationTokenSource.Token, new EmbyProgress());
+        await splitMoviesTask.Execute(cancellationTokenSource.Token, new EmbyProgress());
 
-        _logManager.Verify(lm => lm.GetLogger("Movie Auto Merge"), Times.Once());
+        // the main check
+        _libraryManager.Verify(lm => lm.SplitItems(It.IsAny<BaseItem>()), Times.Exactly(8));
+
+        _logManager.Verify(lm => lm.GetLogger("Movie Auto Merge"), Times.Exactly(2));
         _applicationPaths.VerifyGet(ap => ap.PluginConfigurationsPath, Times.Once());
-        _xmlSerializer.Verify(xs => xs.DeserializeFromFile(typeof(PluginConfiguration), $"{nameof(Execute_DoNotChangeLockedItems_false)}/MovieAutoMerge.xml"), Times.Once());
         _libraryManager.Verify(lm => lm.GetItemList(It.IsAny<InternalItemsQuery>()), Times.Once());
-        _libraryManager.Verify(lm => lm.GetItemById(It.IsInRange(1L, 3L, Moq.Range.Inclusive)), Times.Exactly(27));
+        _libraryManager.Verify(lm => lm.GetItemById(It.IsInRange(1L, 3L, Moq.Range.Inclusive), It.IsAny<IDataContext>()), Times.Exactly(27));
         _libraryManager.Verify(lm => lm.GetInternalItemIds(It.IsAny<InternalItemsQuery>()), Times.Exactly(17));
         _libraryManager.VerifyGet(lm => lm.RootFolderId, Times.Exactly(9));
-        _libraryManager.Verify(lm => lm.SplitItems(It.IsAny<BaseItem>()), Times.Exactly(8));
+        _fileSystem.Verify(fs => fs.DirectoryExists("Execute_DoNotChangeLockedItems_false"), Times.Once());
+        _fileSystem.Verify(fs => fs.CreateDirectory("Execute_DoNotChangeLockedItems_false"), Times.Once());
+        _fileSystem.Verify(fs => fs.FileExists("Execute_DoNotChangeLockedItems_false/MovieAutoMerge.json"), Times.Once());
+        _serverApplicationHost.Verify(sah => sah.Resolve<IJsonSerializer>(), Times.Exactly(2));
+        _serverApplicationHost.Verify(sah => sah.Resolve<IServerConfigurationManager>(), Times.Once());
+        _serverConfigurationManager.VerifyGet(scm => scm.Configuration, Times.AtMost(3));
 
         VerifyNoOtherCalls();
 
@@ -324,16 +336,18 @@ public class SplitMoviesTaskTests : BaseTest
             .SetupGet(m => m.PluginConfigurationsPath)
             .Returns(nameof(SplitMovies_Success));
 
-        _pluginConfiguration.DoNotChangeLockedItems = false;
+        var splitMoviesTask = new SplitMoviesTask(_libraryManager.Object, _logManager.Object);
 
         using var cancellationTokenSource = new CancellationTokenSource();
-        var result = _splitMoviesTask.SplitMovies(MetadataProviders.Tmdb.ToString(), "111");
+        var result = splitMoviesTask.SplitMovies(nameof(MetadataProviders.Tmdb), "111");
+
+        // the main check
         result.Should().BeTrue();
+        _libraryManager.Verify(lm => lm.SplitItems(It.IsAny<BaseItem>()), Times.Exactly(6));
 
         _logManager.Verify(lm => lm.GetLogger("Movie Auto Merge"), Times.Once());
         _libraryManager.Verify(lm => lm.GetItemList(It.IsAny<InternalItemsQuery>()), Times.Once());
         _libraryManager.Verify(lm => lm.GetInternalItemIds(It.IsAny<InternalItemsQuery>()), Times.Exactly(6));
-        _libraryManager.Verify(lm => lm.SplitItems(It.IsAny<BaseItem>()), Times.Exactly(6));
 
         VerifyNoOtherCalls();
 
@@ -349,8 +363,12 @@ public class SplitMoviesTaskTests : BaseTest
             .SetupGet(m => m.PluginConfigurationsPath)
             .Returns(nameof(SplitMovies_NothingFound));
 
+        var splitMoviesTask = new SplitMoviesTask(_libraryManager.Object, _logManager.Object);
+
         using var cancellationTokenSource = new CancellationTokenSource();
-        var result = _splitMoviesTask.SplitMovies(MetadataProviders.Tmdb.ToString(), "INVALID");
+        var result = splitMoviesTask.SplitMovies(nameof(MetadataProviders.Tmdb), "INVALID");
+
+        // the main check
         result.Should().BeFalse();
 
         _logManager.Verify(lm => lm.GetLogger("Movie Auto Merge"), Times.Once());
@@ -370,8 +388,12 @@ public class SplitMoviesTaskTests : BaseTest
             .SetupGet(m => m.PluginConfigurationsPath)
             .Returns(nameof(SplitMovies_EmptyInput));
 
+        var splitMoviesTask = new SplitMoviesTask(_libraryManager.Object, _logManager.Object);
+
         using var cancellationTokenSource = new CancellationTokenSource();
-        var result = _splitMoviesTask.SplitMovies(MetadataProviders.Tmdb.ToString(), "");
+        var result = splitMoviesTask.SplitMovies(nameof(MetadataProviders.Tmdb), "");
+
+        // the main check
         result.Should().BeFalse();
 
         _logManager.Verify(lm => lm.GetLogger("Movie Auto Merge"), Times.Once());
@@ -386,12 +408,14 @@ public class SplitMoviesTaskTests : BaseTest
     {
         Logger.Info($"Start '{nameof(ForCodeCoverage)}'");
 
-        _splitMoviesTask.IsHidden.Should().BeFalse();
-        _splitMoviesTask.IsEnabled.Should().BeTrue();
-        _splitMoviesTask.IsLogged.Should().BeTrue();
-        _splitMoviesTask.Key.Should().NotBeNull();
+        var splitMoviesTask = new SplitMoviesTask(_libraryManager.Object, _logManager.Object);
 
-        _splitMoviesTask.GetDefaultTriggers().Should().BeEmpty();
+        splitMoviesTask.IsHidden.Should().BeFalse();
+        splitMoviesTask.IsEnabled.Should().BeTrue();
+        splitMoviesTask.IsLogged.Should().BeTrue();
+        splitMoviesTask.Key.Should().NotBeNull();
+
+        splitMoviesTask.GetDefaultTriggers().Should().BeEmpty();
 
         _logManager.Verify(lm => lm.GetLogger("Movie Auto Merge"), Times.Once());
         VerifyNoOtherCalls();
@@ -404,52 +428,45 @@ public class SplitMoviesTaskTests : BaseTest
     {
         Logger.Info($"Start '{nameof(GetTranslation_RU)}'");
 
-        _ = _serverConfigurationManager
-            .SetupGet(scm => scm.Configuration)
-            .Returns(new ServerConfiguration
-            {
-                UICulture = "ru"
-            });
+        ServerConfigurationObject.UICulture = "ru";
+        PluginResource.JsonSerializer = _jsonSerializer;
+        PluginResource.ServerConfigurationManager = _serverConfigurationManager.Object;
 
-        var translation = GetTranslation("ScheduledTasks.SplitMoviesTask", "ru");
+        var name = PluginResource.ResourceManager.GetString("SplitMoviesTask_Name");
+        var description = PluginResource.ResourceManager.GetString("SplitMoviesTask_Description");
+        var category = PluginResource.ResourceManager.GetString("PluginTasks_Category");
 
-        translation?.Name.Should().NotBeNullOrWhiteSpace();
-        _splitMoviesTask.Name.Should().Be(translation!.Name);
-        translation.Description.Should().NotBeNullOrWhiteSpace();
-        _splitMoviesTask.Description.Should().Be(translation.Description);
-        translation.Category.Should().NotBeNullOrWhiteSpace();
-        _splitMoviesTask.Category.Should().Be(translation.Category);
+        Assert.Equal("Разделение фильмов", name);
+        Assert.Equal("Разделить все версии фильмов", description);
+        Assert.Equal("Объединение фильмов", category);
 
-        _logManager.Verify(lm => lm.GetLogger("Movie Auto Merge"), Times.Once());
-        _serverConfigurationManager.VerifyGet(scm => scm.Configuration, Times.Exactly(6));
+        _serverConfigurationManager.VerifyGet(scm => scm.Configuration, Times.AtMost(3));
+
         VerifyNoOtherCalls();
 
         Logger.Info($"Finished '{nameof(GetTranslation_RU)}'");
     }
+
 
     [Fact]
     public void GetTranslation_EnUs()
     {
         Logger.Info($"Start '{nameof(GetTranslation_EnUs)}'");
 
-        _ = _serverConfigurationManager
-            .SetupGet(scm => scm.Configuration)
-            .Returns(new ServerConfiguration
-            {
-                UICulture = "en-us"
-            });
+        ServerConfigurationObject.UICulture = "en-us";
+        PluginResource.JsonSerializer = _jsonSerializer;
+        PluginResource.ServerConfigurationManager = _serverConfigurationManager.Object;
 
-        var translation = GetTranslation("ScheduledTasks.SplitMoviesTask", "en-US");
+        var name = PluginResource.ResourceManager.GetString("SplitMoviesTask_Name");
+        var description = PluginResource.ResourceManager.GetString("SplitMoviesTask_Description");
+        var category = PluginResource.ResourceManager.GetString("PluginTasks_Category");
 
-        translation?.Name.Should().NotBeNullOrWhiteSpace();
-        _splitMoviesTask.Name.Should().Be(translation!.Name);
-        translation.Description.Should().NotBeNullOrWhiteSpace();
-        _splitMoviesTask.Description.Should().Be(translation.Description);
-        translation.Category.Should().NotBeNullOrWhiteSpace();
-        _splitMoviesTask.Category.Should().Be(translation.Category);
+        Assert.Equal("Split movies", name);
+        Assert.Equal("Split all versioned movies", description);
+        Assert.Equal("Merge Movies", category);
 
-        _logManager.Verify(lm => lm.GetLogger("Movie Auto Merge"), Times.Once());
-        _serverConfigurationManager.VerifyGet(scm => scm.Configuration, Times.Exactly(6));
+        _serverConfigurationManager.VerifyGet(scm => scm.Configuration, Times.AtMost(3));
+
         VerifyNoOtherCalls();
 
         Logger.Info($"Finished '{nameof(GetTranslation_EnUs)}'");
@@ -460,24 +477,20 @@ public class SplitMoviesTaskTests : BaseTest
     {
         Logger.Info($"Start '{nameof(GetTranslation_BG)}'");
 
-        _ = _serverConfigurationManager
-            .SetupGet(scm => scm.Configuration)
-            .Returns(new ServerConfiguration
-            {
-                UICulture = "bg"
-            });
+        ServerConfigurationObject.UICulture = "bg";
+        PluginResource.JsonSerializer = _jsonSerializer;
+        PluginResource.ServerConfigurationManager = _serverConfigurationManager.Object;
 
-        var translation = GetTranslation("ScheduledTasks.SplitMoviesTask", "en-US");
+        var name = PluginResource.ResourceManager.GetString("SplitMoviesTask_Name");
+        var description = PluginResource.ResourceManager.GetString("SplitMoviesTask_Description");
+        var category = PluginResource.ResourceManager.GetString("PluginTasks_Category");
 
-        translation?.Name.Should().NotBeNullOrWhiteSpace();
-        _splitMoviesTask.Name.Should().Be(translation!.Name);
-        translation.Description.Should().NotBeNullOrWhiteSpace();
-        _splitMoviesTask.Description.Should().Be(translation.Description);
-        translation.Category.Should().NotBeNullOrWhiteSpace();
-        _splitMoviesTask.Category.Should().Be(translation.Category);
+        Assert.Equal("Split movies", name);
+        Assert.Equal("Split all versioned movies", description);
+        Assert.Equal("Merge Movies", category);
 
-        _logManager.Verify(lm => lm.GetLogger("Movie Auto Merge"), Times.Once());
-        _serverConfigurationManager.VerifyGet(scm => scm.Configuration, Times.Exactly(6));
+        _serverConfigurationManager.VerifyGet(scm => scm.Configuration, Times.AtMost(3));
+
         VerifyNoOtherCalls();
 
         Logger.Info($"Finished '{nameof(GetTranslation_EnUs)}'");

@@ -14,7 +14,6 @@ using MovieAutoMerge.ScheduledTasks;
 
 namespace MovieAutoMerge
 {
-    /// <inheritdoc />
     [ExcludeFromCodeCoverage]
     public sealed class ServerEntryPoint : IServerEntryPoint
     {
@@ -22,12 +21,6 @@ namespace MovieAutoMerge
         private readonly ILogger _logger;
         private readonly ITaskManager _taskManager;
 
-        /// <summary>
-        /// Ctor
-        /// </summary>
-        /// <param name="libraryManager"></param>
-        /// <param name="logManager"></param>
-        /// <param name="taskManager"></param>
         public ServerEntryPoint(ILibraryManager libraryManager, ILogManager logManager, ITaskManager taskManager)
         {
             _libraryManager = libraryManager;
@@ -35,14 +28,11 @@ namespace MovieAutoMerge
             _taskManager = taskManager;
         }
 
-
-        /// <inheritdoc />
         public void Dispose()
         {
             _libraryManager.ItemAdded -= libraryManager_ItemAdded;
         }
 
-        /// <inheritdoc />
         public void Run()
         {
             _libraryManager.ItemAdded += libraryManager_ItemAdded;
@@ -53,7 +43,7 @@ namespace MovieAutoMerge
             BaseItem item = e.Item;
             if (nameof(Movie).Equals(item.GetType().Name, StringComparison.Ordinal))
             {
-                if (!Plugin.Instance.Configuration.RunAutomatically)
+                if (!Plugin.Instance.Options.RunAutomatically)
                 {
                     _logger.Info("Auto run is turned off");
                     return;

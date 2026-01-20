@@ -4,18 +4,15 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
-using MediaBrowser.Controller.Configuration;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.Movies;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Model.Entities;
 using MediaBrowser.Model.Logging;
-using MediaBrowser.Model.Serialization;
 using MediaBrowser.Model.Tasks;
 
 using MovieAutoMerge.Extension;
-using MovieAutoMerge.ScheduledTasks.Model;
-using MovieAutoMerge.Utils;
+using MovieAutoMerge.I18n;
 
 namespace MovieAutoMerge.ScheduledTasks
 {
@@ -29,68 +26,36 @@ namespace MovieAutoMerge.ScheduledTasks
         private static readonly object ScanLock = new object();
         private readonly ILibraryManager _libraryManager;
         private readonly ILogger _logger;
-        private readonly Dictionary<string, TaskTranslation> _translations = new Dictionary<string, TaskTranslation>();
-        private readonly Dictionary<string, string> _availableTranslations;
-        private readonly IServerConfigurationManager _serverConfigurationManager;
-        private readonly IJsonSerializer _jsonSerializer;
 
         #region Task Config
 
-        /// <inheritdoc />
-        public string Name => GetTranslation().Name;
+        public string Name => PluginResource.ResourceManager.GetString("MergeMoviesTask_Name");
 
-        /// <inheritdoc />
         public string Key => nameof(MergeMoviesTask);
 
-        /// <inheritdoc />
-        public string Description => GetTranslation().Description;
+        public string Description => PluginResource.ResourceManager.GetString("MergeMoviesTask_Description");
 
-        /// <inheritdoc />
-        public string Category => GetTranslation().Category;
+        public string Category => PluginResource.ResourceManager.GetString("PluginTasks_Category");
 
-        /// <inheritdoc />
         public bool IsHidden => false;
 
-        /// <inheritdoc />
         public bool IsEnabled => true;
 
-        /// <inheritdoc />
         public bool IsLogged => true;
 
         #endregion
 
-        /// <summary>
-        /// Ctor
-        /// </summary>
-        /// <param name="libraryManager"></param>
-        /// <param name="logManager"></param>
-        /// <param name="serverConfigurationManager"></param>
-        /// <param name="jsonSerializer"></param>
-        public MergeMoviesTask(
-            ILibraryManager libraryManager,
-            ILogManager logManager,
-            IServerConfigurationManager serverConfigurationManager,
-            IJsonSerializer jsonSerializer)
+        public MergeMoviesTask(ILibraryManager libraryManager, ILogManager logManager)
         {
             _libraryManager = libraryManager;
             _logger = logManager.GetLogger(Plugin.Instance.Name);
-            _serverConfigurationManager = serverConfigurationManager;
-            _availableTranslations = EmbyHelper.GetAvailableTranslations($"ScheduledTasks.{nameof(MergeMoviesTask)}");
-            _jsonSerializer = jsonSerializer;
         }
 
-        /// <inheritdoc />
         public IEnumerable<TaskTriggerInfo> GetDefaultTriggers()
         {
             return Array.Empty<TaskTriggerInfo>();
         }
 
-        private TaskTranslation GetTranslation()
-        {
-            return EmbyHelper.GetTaskTranslation(_translations, _serverConfigurationManager, _jsonSerializer, _availableTranslations);
-        }
-
-        /// <inheritdoc />
         public Task Execute(CancellationToken cancellationToken, IProgress<double> progress)
         {
             _logger.Info("Start merge movies task");
@@ -196,19 +161,23 @@ namespace MovieAutoMerge.ScheduledTasks
 
         private Dictionary<string, HashSet<Movie>> PrepareItemsForMerge(IReadOnlyCollection<Movie> movies)
         {
+            var selectedProviders = Plugin.Instance.Options.SelectedProviders.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
             var providerTypes = movies
                 .SelectMany(i => i.ProviderIds?.Keys)
                 .Distinct()
-                .Where(i => !string.IsNullOrWhiteSpace(i));
-            _logger.Debug("Found {0} different providers: {1}", providerTypes.Count(), string.Join(",", providerTypes));
+                .Where(i => !string.IsNullOrWhiteSpace(i))
+                .ToList();
+            _logger.Debug("Found {0} different providers: {1}", providerTypes.Count, string.Join(",", providerTypes));
 
-            if (Plugin.Instance.Configuration.UsedProviders.Count > 0)
+            if (selectedProviders.Length > 0)
             {
-                _logger.Info("Filtering all available providers by chosen list: {1}", string.Join(",", Plugin.Instance.Configuration.UsedProviders));
-                providerTypes = providerTypes.Where(t => Plugin.Instance.Configuration.UsedProviders.Contains(t));
+                _logger.Info("Filtering all available providers by chosen list: {0}", Plugin.Instance.Options.SelectedProviders);
+                providerTypes = providerTypes
+                    .Where(t => selectedProviders.Contains(t))
+                    .ToList();
             }
 
-            _logger.Info("Used {0} different providers: {1}", providerTypes.Count(), string.Join(",", providerTypes));
+            _logger.Info("Used {0} different providers: {1}", providerTypes.Count, string.Join(",", providerTypes));
 
             List<IGrouping<string, Movie>> groups = new List<IGrouping<string, Movie>>();
             foreach (var providerType in providerTypes)
@@ -261,7 +230,8 @@ namespace MovieAutoMerge.ScheduledTasks
 
         private static IEnumerable<string> GetItemAvailableProviders(IEnumerable<string> providersList, Movie item, string key)
         {
-            IEnumerable<KeyValuePair<string, string>> list = Plugin.Instance.Configuration.UsedProviders.Count > 0
+            var selectedProviders = Plugin.Instance.Options.SelectedProviders.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+            IEnumerable<KeyValuePair<string, string>> list = selectedProviders.Length > 0
                 ? item.ProviderIds.Where(providerIdKeyPair => providersList.Contains(providerIdKeyPair.Key))
                 : item.ProviderIds;
 
@@ -277,25 +247,37 @@ namespace MovieAutoMerge.ScheduledTasks
 
         private IEnumerable<(long libraryId, List<Movie> movies)> GetItemsToProcess()
         {
-            var config = Plugin.Instance.Configuration;
-            _logger.Info("Choosing items: MergeAcrossLibraries-{0}", config.MergeAcrossLibraries);
-            var libraries = _libraryManager.GetItemList(new InternalItemsQuery
+            var selectedLibraries = Plugin.Instance.Options.SelectedLibraries.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+            long[] libraryIds;
+            if (selectedLibraries.Length == 0)
             {
-                IncludeItemTypes = new[] { nameof(CollectionFolder) },
-                IsFolder = true,
-                IsVirtualItem = false
-            });
-            _logger.Info("Found {0} libraries. Scanning movies...", libraries.Length);
-            if (config.MergeAcrossLibraries)
-            {
-                var libIds = libraries
+                libraryIds = _libraryManager.GetItemList(new InternalItemsQuery
+                    {
+                        IncludeItemTypes = new[] { nameof(CollectionFolder) },
+                        IsFolder = true,
+                        IsVirtualItem = false
+                    })
                     .Where(l => !"Top Picks".Equals(l.Name, StringComparison.Ordinal))
                     .Select(l => l.InternalId)
                     .ToArray();
+            }
+            else
+            {
+                libraryIds = selectedLibraries
+                    .Select(l => long.TryParse(l, out var libraryId) ? libraryId : -1)
+                    .Where(i => i > 0)
+                    .Distinct()
+                    .ToArray();
+            }
+
+            _logger.Info("Found {0} libraries.", libraryIds.Length);
+            _logger.Info("Choosing items: MergeAcrossLibraries-{0}", Plugin.Instance.Options.MergeAcrossLibraries);
+            if (Plugin.Instance.Options.MergeAcrossLibraries)
+            {
                 var movies = _libraryManager.GetItemList(new InternalItemsQuery
                     {
                         Recursive = true,
-                        ParentIds = libIds,
+                        AncestorIds = libraryIds,
                         IncludeItemTypes = new[] { nameof(Movie) },
                         IsVirtualItem = false,
                         MediaTypes = new[] { nameof(MediaType.Video) },
@@ -303,43 +285,38 @@ namespace MovieAutoMerge.ScheduledTasks
                     })
                     .OfType<Movie>();
 
-                List<Movie> toReturn = FilterValidMovies(movies, config.DoNotChangeLockedItems);
+                List<Movie> toReturn = FilterValidMovies(movies);
                 _logger.Info("Found {0} applicable movie files in libraries", toReturn.Count);
                 yield return (-1, toReturn);
             }
             else
             {
-                foreach (var library in libraries)
+                foreach (var libraryId in libraryIds)
                 {
-                    if (library.Name == "Top Picks")
-                    {
-                        _logger.Info("Ignoring library \"Top Picks\".");
-                        continue;
-                    }
-
                     var movies = _libraryManager.GetItemList(new InternalItemsQuery
-                    {
-                        Recursive = true,
-                        ParentIds = new[] { library.InternalId },
-                        IncludeItemTypes = new[] { nameof(Movie) },
-                        IsVirtualItem = false,
-                        MediaTypes = new[] { nameof(MediaType.Video) },
-                        HasPath = true
-                    }).OfType<Movie>();
+                        {
+                            Recursive = true,
+                            AncestorIds = new[] { libraryId },
+                            IncludeItemTypes = new[] { nameof(Movie) },
+                            IsVirtualItem = false,
+                            MediaTypes = new[] { nameof(MediaType.Video) },
+                            HasPath = true
+                        })
+                        .OfType<Movie>();
 
-                    List<Movie> toReturn = FilterValidMovies(movies, config.DoNotChangeLockedItems);
-                    _logger.Info("Found {0} applicable movie files in library \"{1}\".", toReturn.Count, library.Name);
-                    yield return (library.InternalId, toReturn);
+                    List<Movie> toReturn = FilterValidMovies(movies);
+                    _logger.Info("Found {0} applicable movie files in library \"{1}\".", toReturn.Count, libraryId);
+                    yield return (libraryId, toReturn);
                 }
             }
         }
 
-        private List<Movie> FilterValidMovies(IEnumerable<Movie> movies, bool doNotChangeLockedItems)
+        private List<Movie> FilterValidMovies(IEnumerable<Movie> movies)
         {
             List<Movie> toReturn = new List<Movie>();
             foreach (var movie in movies)
             {
-                if (doNotChangeLockedItems && movie.IsLocked)
+                if (Plugin.Instance.Options.DoNotChangeLockedItems && movie.IsLocked)
                 {
                     _logger.Info("Ignoring locked item: {0}", movie.Name);
                 }

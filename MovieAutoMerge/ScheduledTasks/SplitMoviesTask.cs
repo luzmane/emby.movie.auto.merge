@@ -4,92 +4,53 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
-using MediaBrowser.Controller.Configuration;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.Movies;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Model.Entities;
 using MediaBrowser.Model.Logging;
-using MediaBrowser.Model.Serialization;
 using MediaBrowser.Model.Tasks;
 
-using MovieAutoMerge.ScheduledTasks.Model;
-using MovieAutoMerge.Utils;
+using MovieAutoMerge.I18n;
 
 namespace MovieAutoMerge.ScheduledTasks
 {
-    /// <summary>
-    /// Split movies task
-    /// </summary>
     public class SplitMoviesTask : IScheduledTask, IConfigurableScheduledTask
     {
         private static bool s_isScanRunning;
         private static readonly object ScanLock = new object();
         private readonly ILibraryManager _libraryManager;
         private readonly ILogger _logger;
-        private readonly Dictionary<string, TaskTranslation> _translations = new Dictionary<string, TaskTranslation>();
-        private readonly Dictionary<string, string> _availableTranslations;
-        private readonly IServerConfigurationManager _serverConfigurationManager;
-        private readonly IJsonSerializer _jsonSerializer;
 
         #region Task Config
 
-        /// <inheritdoc />
-        public string Name => GetTranslation().Name;
+        public string Name => PluginResource.ResourceManager.GetString("SplitMoviesTask_Name");
 
-        /// <inheritdoc />
         public string Key => nameof(SplitMoviesTask);
 
-        /// <inheritdoc />
-        public string Description => GetTranslation().Description;
+        public string Description => PluginResource.ResourceManager.GetString("SplitMoviesTask_Description");
 
-        /// <inheritdoc />
-        public string Category => GetTranslation().Category;
+        public string Category => PluginResource.ResourceManager.GetString("PluginTasks_Category");
 
-        /// <inheritdoc />
         public bool IsHidden => false;
 
-        /// <inheritdoc />
         public bool IsEnabled => true;
 
-        /// <inheritdoc />
         public bool IsLogged => true;
 
         #endregion
 
-        /// <summary>
-        /// Ctor
-        /// </summary>
-        /// <param name="libraryManager"></param>
-        /// <param name="logManager"></param>
-        /// <param name="serverConfigurationManager"></param>
-        /// <param name="jsonSerializer"></param>
-        public SplitMoviesTask(
-            ILibraryManager libraryManager,
-            ILogManager logManager,
-            IServerConfigurationManager serverConfigurationManager,
-            IJsonSerializer jsonSerializer)
+        public SplitMoviesTask(ILibraryManager libraryManager, ILogManager logManager)
         {
             _libraryManager = libraryManager;
-            _logger = logManager.GetLogger(Plugin.Instance.Name);
-            _serverConfigurationManager = serverConfigurationManager;
-            _availableTranslations = EmbyHelper.GetAvailableTranslations($"ScheduledTasks.{nameof(SplitMoviesTask)}");
-            _jsonSerializer = jsonSerializer;
+            _logger = logManager.GetLogger(Plugin.PluginName);
         }
 
-        /// <inheritdoc />
         public IEnumerable<TaskTriggerInfo> GetDefaultTriggers()
         {
             return Array.Empty<TaskTriggerInfo>();
         }
 
-        private TaskTranslation GetTranslation()
-        {
-            return EmbyHelper.GetTaskTranslation(_translations, _serverConfigurationManager, _jsonSerializer, _availableTranslations);
-        }
-
-
-        /// <inheritdoc />
         public Task Execute(CancellationToken cancellationToken, IProgress<double> progress)
         {
             _logger.Info("Start split movies task");
@@ -189,7 +150,6 @@ namespace MovieAutoMerge.ScheduledTasks
 
         private List<Video> GetItemsToProcess()
         {
-            var config = Plugin.Instance.Configuration;
             var toReturn = _libraryManager.GetItemList(new InternalItemsQuery
                 {
                     Recursive = true,
@@ -205,7 +165,7 @@ namespace MovieAutoMerge.ScheduledTasks
                                 && movie.GetAlternateVersionIds().Count > 0)
                 .ToList();
 
-            if (config.DoNotChangeLockedItems)
+            if (Plugin.Instance.Options.DoNotChangeLockedItems)
             {
                 _logger.Info("Excluding locked items");
                 var lockedAltVersions = toReturn

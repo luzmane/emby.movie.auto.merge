@@ -2,100 +2,82 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
-using System.Linq;
 
-using MovieAutoMerge.Configuration;
-
-using MediaBrowser.Common.Configuration;
 using MediaBrowser.Common.Plugins;
-using MediaBrowser.Controller.Library;
+using MediaBrowser.Controller;
+using MediaBrowser.Controller.Configuration;
 using MediaBrowser.Model.Drawing;
-using MediaBrowser.Model.Plugins;
+using MediaBrowser.Model.Logging;
+using MediaBrowser.Model.Plugins.UI;
 using MediaBrowser.Model.Serialization;
+
+using MovieAutoMerge.I18n;
+using MovieAutoMerge.Storage;
+using MovieAutoMerge.UI;
 
 namespace MovieAutoMerge
 {
-    /// <summary>
-    /// The main plugin.
-    /// </summary>
     [ExcludeFromCodeCoverage]
-    public class Plugin : BasePlugin<PluginConfiguration>, IHasThumbImage, IHasWebPages, IHasTranslations
+    public class Plugin : BasePlugin, IHasThumbImage, IHasUIPages
     {
         internal const string PluginName = "Movie Auto Merge";
+        private const string PluginGuidString = "7f6902cc-a3ba-40d9-868f-98f73291fdf7";
 
-        /// <summary>
-        /// Gets the current plugin instance.
-        /// </summary>
         public static Plugin Instance { get; private set; }
 
-        /// <inheritdoc />
+        public MainPageUI Options => _pluginOptionsStore.GetOptions();
         public override string Name => PluginName;
-
-        /// <inheritdoc />
         public override string Description => "Auto merge movies based on provider id";
+        public override Guid Id => _id;
+        private readonly Guid _id = new Guid(PluginGuidString);
 
-        /// <inheritdoc />
-        public ImageFormat ThumbImageFormat => ImageFormat.Png;
+        private readonly IServerApplicationHost _applicationHost;
+        private readonly ILogger _logger;
+        private readonly PluginOptionsStore _pluginOptionsStore;
 
-        /// <inheritdoc />
-        public override Guid Id => new Guid("7f6902cc-a3ba-40d9-868f-98f73291fdf7");
-
-
-        internal readonly ILibraryManager LibraryManager;
-
-
-        /// <summary>
-        /// Initializes a new instance of the <see cref="Plugin"/> class.
-        /// </summary>
-        /// <param name="applicationPaths">Instance of the <see cref="IApplicationPaths"/> interface.</param>
-        /// <param name="xmlSerializer">Instance of the <see cref="IXmlSerializer"/> interface.</param>
-        /// <param name="libraryManager"></param>
-        public Plugin(IApplicationPaths applicationPaths, IXmlSerializer xmlSerializer, ILibraryManager libraryManager)
-            : base(applicationPaths, xmlSerializer)
+        public Plugin(IServerApplicationHost applicationHost, ILogManager logManager)
         {
             Instance = this;
-            SetId(new Guid("7f6902cc-a3ba-40d9-868f-98f73291fdf7"));
-            LibraryManager = libraryManager;
+            _applicationHost = applicationHost;
+            _logger = logManager.GetLogger(PluginName);
+            _pluginOptionsStore = new PluginOptionsStore(applicationHost, _logger, PluginName.Replace(" ", string.Empty));
+
+            PluginResource.JsonSerializer = applicationHost.Resolve<IJsonSerializer>();
+            PluginResource.ServerConfigurationManager = applicationHost.Resolve<IServerConfigurationManager>();
         }
 
-        /// <inheritdoc />
+        #region IHasThumbImage
+
+        public ImageFormat ThumbImageFormat => ImageFormat.Png;
+
         public Stream GetThumbImage()
         {
             Type type = GetType();
             return type.Assembly.GetManifestResourceStream(type.Namespace + ".thumb.png");
         }
 
-        /// <inheritdoc />
-        public IEnumerable<PluginPageInfo> GetPages()
+        #endregion
+
+        #region IHasUIPages
+
+        private List<IPluginUIPageController> _pages;
+
+        public IReadOnlyCollection<IPluginUIPageController> UIPageControllers
         {
-            return new[]
+            get
             {
-                new PluginPageInfo
+                if (_pages == null)
                 {
-                    Name = "MovieAutoMerge",
-                    EmbeddedResourcePath = GetType().Namespace + ".Configuration.MovieAutoMerge.html"
-                },
-                new PluginPageInfo
-                {
-                    Name = "MovieAutoMergeJS",
-                    EmbeddedResourcePath = GetType().Namespace + ".Configuration.MovieAutoMerge.js"
+                    _pages = new List<IPluginUIPageController>
+                    {
+                        new PluginPageController(_logger, GetPluginInfo(), _applicationHost, _pluginOptionsStore)
+                    };
                 }
-            };
+
+                return _pages.AsReadOnly();
+            }
         }
 
-        /// <inheritdoc />
-        public TranslationInfo[] GetTranslations()
-        {
-            var basePath = GetType().Namespace + ".i18n.Configuration.";
-            return GetType().Assembly.GetManifestResourceNames()
-                .Where(i => i.StartsWith(basePath, StringComparison.OrdinalIgnoreCase))
-                .Select(i =>
-                    new TranslationInfo
-                    {
-                        Locale = Path.GetFileNameWithoutExtension(i.Substring(basePath.Length)),
-                        EmbeddedResourcePath = i
-                    })
-                .ToArray();
-        }
+        #endregion
     }
 }

@@ -8,7 +8,6 @@ namespace MovieAutoMerge.Extension
     [ExcludeFromCodeCoverage]
     internal class BaseItemEqualityComparer : IEqualityComparer<BaseItem>
     {
-        /// <inheritdoc />
         public bool Equals(BaseItem x, BaseItem y)
         {
             if (ReferenceEquals(x, y))
@@ -24,7 +23,6 @@ namespace MovieAutoMerge.Extension
             return x.InternalId.Equals(y.InternalId);
         }
 
-        /// <inheritdoc />
         public int GetHashCode(BaseItem obj)
         {
             return obj.InternalId.GetHashCode();

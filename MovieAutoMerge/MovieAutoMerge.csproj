@@ -10,6 +10,8 @@
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
 
+    <NoWarn>1591</NoWarn>
+
     <!-- nuget setup -->
     <Version>1.1.1</Version>
     <AssemblyVersion>$(Version)</AssemblyVersion>
@@ -37,39 +39,20 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="mediabrowser.server.core" Version="4.8.5"/>
-    <PackageReference Include="System.Memory" Version="4.5.5"/>
-    <PackageReference Include="System.Text.Json" Version="6.0.9"/>
+    <PackageReference Include="mediabrowser.server.core" Version="4.9.1.90"/>
+    <PackageReference Include="System.Memory" Version="4.6.0"/>
+    <PackageReference Include="System.Text.Json" Version="8.0.6"/>
   </ItemGroup>
 
   <ItemGroup>
     <None Remove="thumb.png"/>
-    <None Remove="Configuration/MovieAutoMerge.html"/>
-    <None Remove="Configuration/MovieAutoMerge.js"/>
-
-    <None Remove="i18n/Configuration/ru.json"/>
-    <None Remove="i18n/Configuration/en-US.json"/>
-
-    <None Remove="i18n/ScheduledTasks/MergeMoviesTask/ru.json"/>
-    <None Remove="i18n/ScheduledTasks/MergeMoviesTask/en-US.json"/>
-
-    <None Remove="i18n/ScheduledTasks/SplitMoviesTask/ru.json"/>
-    <None Remove="i18n/ScheduledTasks/SplitMoviesTask/en-US.json"/>
-  </ItemGroup>
-
-  <ItemGroup>
     <EmbeddedResource Include="thumb.png"/>
-    <EmbeddedResource Include="Configuration/MovieAutoMerge.html"/>
-    <EmbeddedResource Include="Configuration/MovieAutoMerge.js"/>
 
-    <EmbeddedResource Include="i18n/Configuration/ru.json"/>
-    <EmbeddedResource Include="i18n/Configuration/en-US.json"/>
+    <None Remove="I18n\Resources\en.json" />
+    <EmbeddedResource Include="I18n\Resources\en.json" />
 
-    <EmbeddedResource Include="i18n/ScheduledTasks/MergeMoviesTask/ru.json"/>
-    <EmbeddedResource Include="i18n/ScheduledTasks/MergeMoviesTask/en-US.json"/>
-
-    <EmbeddedResource Include="i18n/ScheduledTasks/SplitMoviesTask/ru.json"/>
-    <EmbeddedResource Include="i18n/ScheduledTasks/SplitMoviesTask/en-US.json"/>
+    <None Remove="I18n\Resources\ru.json" />
+    <EmbeddedResource Include="I18n\Resources\ru.json" />
   </ItemGroup>
 
 </Project>
