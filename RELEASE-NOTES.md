@@ -1,3 +1,7 @@
+v.2.0.0
+- feature: add configuration to select relevant libraries
+- feature: move to UI to C# from JS. Old configuration will be ignored
+
 v.1.1.1
 - fix: continue merge even if one movie failed to be merged
 

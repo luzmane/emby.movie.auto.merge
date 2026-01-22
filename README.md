@@ -1,12 +1,16 @@
 # Movie Auto Merge plugin
 
-Плагин для Emby для компоновки или разделения фильмов в медиатеках. Компонует используя все известные Emby провайдеры метаданных (IMDB, TMDB, Кинопоиск, и т.п.) из фильмов.
+Плагин для Emby для слияния или разделения фильмов в медиатеках. Компонует используя все известные Emby провайдеры метаданных (IMDB, TMDB, Кинопоиск, и т.п.) из фильмов.
 
 Plugin for Emby to merge/split movies in libraries. Uses all available movie metadata providers (IMDB, TMDB, Кинопоиск, etc.).
 
 :exclamation: **Эта функциональность частично присутствует в Emby 4.9+**
 
 :exclamation: **This functionality partially exists in Emby 4.9+**
+
+:exclamation: Из-за изменения подхода для отрисовки настроек плагина начиная с версии 2.0.0, плагин должен быть перенастроен, например для утрочнения списока используемых провайдеров данных.
+
+:exclamation: Since plugin moved to the new UI approach (via C# classes without JS) at v.2.0.0, the plugin should be reconfigured (e.g. selected providers)
 
 
 ### Благодарность
@@ -31,8 +35,9 @@ Plugin for Emby to merge/split movies in libraries. Uses all available movie met
 * Разделение можно запускать как самостоятельную задачу "Split Movies" в секции "Movie Auto Merge".
 * Можно разделить отдельный фильм, указав его провайдера данных и соответствующий идентификатор в конфигурации и нажав "Split".
 * Можно выбрать какие провайдеры будут учитываться при компоновке
+* Можно выбрать по каким библиотекам будет происходить поиск слияния
 
 ## Требования
 
-* Плагин тестировался на версии 4.8.8
-* Собирался c .Net 7.0 для .NetStandard 2.0
+* Плагин тестировался на версии 4.9.1
+* Собирался c .Net 8.0 для .NetStandard 2.0

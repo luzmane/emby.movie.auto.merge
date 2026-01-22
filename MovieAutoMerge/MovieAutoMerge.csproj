@@ -13,7 +13,7 @@
     <NoWarn>1591</NoWarn>
 
     <!-- nuget setup -->
-    <Version>1.1.1</Version>
+    <Version>2.0.0</Version>
     <AssemblyVersion>$(Version)</AssemblyVersion>
     <FileVersion>$(Version)</FileVersion>
     <Authors>Evgeniy Luzman</Authors>
